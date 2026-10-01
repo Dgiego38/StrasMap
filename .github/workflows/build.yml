@@ -1,4 +1,4 @@
-name: Build Swift Package
+name: Build and Export IPA
 
 on:
   push:
@@ -15,5 +15,26 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build Package for iOS
-        run: swift build -c release --sdk $(xcrun --sdk iphoneos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-ios17.0
+      # 1. Si tu utilises xcodebuild avec un projet/workspace minimal
+      - name: Build and Archive
+        run: |
+          xcodebuild -scheme StrasbourgMap \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -archivePath build/StrasbourgMap.xcarchive \
+                     archive
+
+      # 2. Exportation de l'archive en .ipa (sans signature pour l'instant, idéal pour le build cloud)
+      - name: Export IPA
+        run: |
+          mkdir -p build/IPA
+          # Note: Pour un export sans compte Apple Developer payant, 
+          # on peut récupérer le binaire compilé ou configurer un export ad-hoc.
+          
+      # 3. Sauvegarde du build dans les artefacts GitHub
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StrasbourgMap-Build
+          path: build/
