@@ -16,4 +16,4 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Build Package for iOS
-        run: swift build -arch arm64 --sdk iphoneos
+        run: swift build -c release --sdk $(xcrun --sdk iphoneos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-ios17.0
