@@ -1,4 +1,4 @@
-name: Build iOS & WatchApp IPA
+name: Build Swift Package
 
 on:
   push:
@@ -15,10 +15,5 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build Project for iOS & watchOS
-        run: |
-          xcodebuild -scheme StrasbourgMap \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     -derivedDataPath build \
-                     build
+      - name: Build Package for iOS
+        run: swift build -arch arm64 --sdk iphoneos
