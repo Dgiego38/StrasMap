@@ -8,13 +8,13 @@ let package = Package(
         .watchOS(.v10)
     ],
     products: [
-        .library(
+        .executable(
             name: "StrasbourgMap",
             targets: ["StrasbourgMap"]
         ),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "StrasbourgMap",
             path: "StrasbourgMap"
         )

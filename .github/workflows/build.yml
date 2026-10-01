@@ -15,33 +15,17 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build Package or Project
+      - name: Build iOS Executable
         run: |
-          # Si tu utilises xcodebuild avec un projet configuré :
-          xcodebuild -scheme StrasbourgMap \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     -derivedDataPath build \
-                     build || swift build -c release
+          swift build -c release --sdk $(xcrun --sdk iphoneos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-ios17.0
 
-      - name: Create Payload and IPA Structure
+      - name: Create Payload and IPA
         run: |
-          # Crée un dossier Payload requis pour un IPA
-          mkdir -p Payload
+          mkdir -p Payload/StrasbourgMap.app
+          # Copie le binaire compilé par Swift Package Manager
+          cp .build/arm64-apple-ios/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap || cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
           
-          # Copie l'app compilée (si elle existe dans le derived data ou le build swift)
-          # On cherche l'exécutable ou le .app généré
-          if [ -d "build/Build/Products/Release-iphoneos/StrasbourgMap.app" ]; then
-            cp -r "build/Build/Products/Release-iphoneos/StrasbourgMap.app" Payload/
-          elif [ -d ".build/arm64-apple-ios/release/StrasbourgMap.app" ]; then
-            cp -r ".build/arm64-apple-ios/release/StrasbourgMap.app" Payload/
-          else
-            # Fallback si l'app est sous forme de binaire brut
-            mkdir -p Payload/StrasbourgMap.app
-            cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap || true
-          fi
-
-          # Compresse en .ipa (qui est un simple zip renommé)
+          # Compresse en IPA
           zip -r StrasbourgMap.ipa Payload
 
       - name: Upload IPA Artifact
