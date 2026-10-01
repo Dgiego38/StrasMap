@@ -17,7 +17,7 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          xcodebuild -project StrasbourgMap/StrasbourgMap.xcodeproj \
+          xcodebuild -project StrasbourgMap.xcodeproj \
                      -scheme StrasbourgMap \
                      -sdk iphoneos \
                      -configuration Release \
@@ -34,9 +34,9 @@ jobs:
             cp -r "$APP_PATH"/* Payload/StrasbourgMap.app/
           fi
           
-          # S'assure que le fichier Info.plist est bien présent dans le bundle de l'app
-          if [ -f "StrasbourgMap/Info.plist" ] && [ ! -f "Payload/StrasbourgMap.app/Info.plist" ]; then
-            cp StrasbourgMap/Info.plist Payload/StrasbourgMap.app/Info.plist
+          # S'assure que le fichier Info.plist est bien présent
+          if [ -f "Info.plist" ] && [ ! -f "Payload/StrasbourgMap.app/Info.plist" ]; then
+            cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
 
           # Compresse en IPA
