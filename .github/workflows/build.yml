@@ -1,4 +1,4 @@
-name: Build and Export IPA
+name: Build and Generate IPA
 
 on:
   push:
@@ -15,26 +15,37 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      # 1. Si tu utilises xcodebuild avec un projet/workspace minimal
-      - name: Build and Archive
+      - name: Build Package or Project
         run: |
+          # Si tu utilises xcodebuild avec un projet configuré :
           xcodebuild -scheme StrasbourgMap \
                      -sdk iphoneos \
                      -configuration Release \
-                     -destination 'generic/platform=iOS' \
-                     -archivePath build/StrasbourgMap.xcarchive \
-                     archive
+                     -derivedDataPath build \
+                     build || swift build -c release
 
-      # 2. Exportation de l'archive en .ipa (sans signature pour l'instant, idéal pour le build cloud)
-      - name: Export IPA
+      - name: Create Payload and IPA Structure
         run: |
-          mkdir -p build/IPA
-          # Note: Pour un export sans compte Apple Developer payant, 
-          # on peut récupérer le binaire compilé ou configurer un export ad-hoc.
+          # Crée un dossier Payload requis pour un IPA
+          mkdir -p Payload
           
-      # 3. Sauvegarde du build dans les artefacts GitHub
-      - name: Upload Artifact
+          # Copie l'app compilée (si elle existe dans le derived data ou le build swift)
+          # On cherche l'exécutable ou le .app généré
+          if [ -d "build/Build/Products/Release-iphoneos/StrasbourgMap.app" ]; then
+            cp -r "build/Build/Products/Release-iphoneos/StrasbourgMap.app" Payload/
+          elif [ -d ".build/arm64-apple-ios/release/StrasbourgMap.app" ]; then
+            cp -r ".build/arm64-apple-ios/release/StrasbourgMap.app" Payload/
+          else
+            # Fallback si l'app est sous forme de binaire brut
+            mkdir -p Payload/StrasbourgMap.app
+            cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap || true
+          fi
+
+          # Compresse en .ipa (qui est un simple zip renommé)
+          zip -r StrasbourgMap.ipa Payload
+
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrasbourgMap-Build
-          path: build/
+          name: StrasbourgMap-IPA
+          path: StrasbourgMap.ipa
