@@ -15,16 +15,30 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build iOS Executable
+      - name: Build Xcode Project
         run: |
-          swift build -c release --sdk $(xcrun --sdk iphoneos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-ios17.0
+          xcodebuild -project StrasbourgMap/StrasbourgMap.xcodeproj \
+                     -scheme StrasbourgMap \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     -derivedDataPath build \
+                     build
 
-      - name: Create Payload and IPA
+      - name: Create Payload and Bundle Info.plist
         run: |
           mkdir -p Payload/StrasbourgMap.app
-          # Copie le binaire compilé par Swift Package Manager
-          cp .build/arm64-apple-ios/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap || cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
           
+          # Cherche l'app compilée et copie-la dans le Payload
+          APP_PATH=$(find build -name "StrasbourgMap.app" -type d | head -n 1)
+          if [ -d "$APP_PATH" ]; then
+            cp -r "$APP_PATH"/* Payload/StrasbourgMap.app/
+          fi
+          
+          # S'assure que le fichier Info.plist est bien présent dans le bundle de l'app
+          if [ -f "StrasbourgMap/Info.plist" ] && [ ! -f "Payload/StrasbourgMap.app/Info.plist" ]; then
+            cp StrasbourgMap/Info.plist Payload/StrasbourgMap.app/Info.plist
+          fi
+
           # Compresse en IPA
           zip -r StrasbourgMap.ipa Payload
 
