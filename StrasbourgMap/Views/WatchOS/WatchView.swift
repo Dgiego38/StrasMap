@@ -18,8 +18,8 @@ struct WatchMapView: View {
                 UserAnnotation()
 
                 ForEach(networkManager.velhops) { velhop in
-                    if let coords = velhop.geoPoint2d, coords.count == 2 {
-                        Annotation(velhop.nom ?? "", coordinate: CLLocationCoordinate2D(latitude: coords[0], longitude: coords[1])) {
+                    if let lat = velhop.lat, let lon = velhop.lon {
+                        Annotation(velhop.nom ?? "", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
                             Button(action: {
                                 selectedVelhop = velhop
                             }) {

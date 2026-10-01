@@ -1,18 +1,28 @@
 import Foundation
 
 struct VelhopRecord: Codable, Identifiable {
-    let id = UUID()
+    var id: String { stationId }
+    let stationId: String
     let nom: String?
     let nbrVelosDispo: Int?
-    let geoPoint2d: [Double]? // [lat, lon]
+    let lat: Double?
+    let lon: Double?
 
     enum CodingKeys: String, CodingKey {
-        case nom = "nom_station"
-        case nbrVelosDispo = "nombre_velos_disponibles"
-        case geoPoint2d = "geo_point_2d"
+        case stationId = "id"
+        case nom = "na"
+        case nbrVelosDispo = "av"
+        case lat
+        case lon
     }
 }
 
 struct OpenDataResponse: Codable {
+    let totalCount: Int?
     let results: [VelhopRecord]
+
+    enum CodingKeys: String, CodingKey {
+        case totalCount = "total_count"
+        case results
+    }
 }
