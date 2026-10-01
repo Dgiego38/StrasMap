@@ -53,12 +53,11 @@ struct ContentView: View {
                     }
                 }
             }
-            // Retire tous les points d'intérêt par défaut (restau, boutiques, etc.)
             .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank])))
             .ignoresSafeArea()
             .onChange(of: locationManager.authorizationStatus) { status in
                 if status == .authorizedWhenInUse || status == .authorizedAlways {
-                    if let location = locationManager.manager.location {
+                    if let location = locationManager.currentLocation {
                         position = .region(
                             MKCoordinateRegion(
                                 center: location.coordinate,
