@@ -1,4 +1,4 @@
-name: Build and Generate IPA
+name: Build Swift Package IPA
 
 on:
   push:
@@ -15,31 +15,27 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build Xcode Project
+      - name: Build with Swift Package Manager
         run: |
-          xcodebuild -project StrasbourgMap.xcodeproj \
-                     -scheme StrasbourgMap \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     -derivedDataPath build \
-                     build
+          swift build -c release --sdk $(xcrun --sdk iphoneos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-ios17.0
 
-      - name: Create Payload and Bundle Info.plist
+      - name: Package into IPA
         run: |
           mkdir -p Payload/StrasbourgMap.app
           
-          # Cherche l'app compilée et copie-la dans le Payload
-          APP_PATH=$(find build -name "StrasbourgMap.app" -type d | head -n 1)
-          if [ -d "$APP_PATH" ]; then
-            cp -r "$APP_PATH"/* Payload/StrasbourgMap.app/
+          # Récupère l'exécutable compilé
+          if [ -f ".build/arm64-apple-ios/release/StrasbourgMap" ]; then
+            cp .build/arm64-apple-ios/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
+          elif [ -f ".build/release/StrasbourgMap" ]; then
+            cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
           fi
           
-          # S'assure que le fichier Info.plist est bien présent
-          if [ -f "Info.plist" ] && [ ! -f "Payload/StrasbourgMap.app/Info.plist" ]; then
+          # Ajoute l'Info.plist s'il existe
+          if [ -f "Info.plist" ]; then
             cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
 
-          # Compresse en IPA
+          # Crée l'archive .ipa
           zip -r StrasbourgMap.ipa Payload
 
       - name: Upload IPA Artifact
