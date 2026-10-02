@@ -14,8 +14,10 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var selectedItem: MapItemModel?
     
+    // Ajoute ici tes toilettes publiques si tu en as d'autres
     @State private var toilets: [MapItemModel] = [
-        MapItemModel(id: "t1", name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7475), type: .toilette, availableBikes: nil, details: "Ouvert 24/7 - Accès PMR")
+        MapItemModel(id: "t1", name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7475), type: .toilette, availableBikes: nil, details: "Ouvert 24/7 - Accès PMR"),
+        MapItemModel(id: "t2", name: "Toilettes Cathédrale", coordinate: CLLocationCoordinate2D(latitude: 48.5816, longitude: 7.7501), type: .toilette, availableBikes: nil, details: "Accès PMR")
     ]
 
     var filteredItems: [MapItemModel] {
@@ -63,7 +65,8 @@ struct ContentView: View {
                     }
                 }
             }
-            .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank, .park, .hospital, .school])))
+            // C'est cette ligne qui nettoie la carte en virant tous les trucs d'Apple Plans (restaurants, cinémas, etc.)
+            .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank, .park, .hospital, .school, .nightlife, .theater, .movieTheater])))
             .ignoresSafeArea()
             .onChange(of: locationManager.authorizationStatus) { _, status in
                 if status == .authorizedWhenInUse || status == .authorizedAlways {
@@ -119,18 +122,18 @@ struct ContentView: View {
         }
     }
     
-    // Extraire les vues complexes résout l'erreur de dépassement de temps du compilateur Swift
     @ViewBuilder
     private func markerView(for item: MapItemModel) -> some View {
         let isVelhop = item.type == .velhop
         let hasBikes = (item.availableBikes ?? 0) > 0
         let color: Color = isVelhop ? (hasBikes ? .blue : .red) : .orange
+        let iconName = isVelhop ? "bicycle" : "figure.restroom"
         
-        Circle()
-            .fill(color)
-            .frame(width: 12, height: 12)
-            .padding(6)
-            .background(.ultraThinMaterial)
+        Image(systemName: iconName)
+            .font(.system(size: 12, weight: .bold))
+            .padding(8)
+            .background(color)
+            .foregroundColor(.white)
             .clipShape(Circle())
             .shadow(radius: 2)
     }

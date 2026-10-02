@@ -21,25 +21,38 @@ jobs:
 
       - name: Build Watch App
         run: |
-          swift build -c release --sdk $(xcrun --sdk watchos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-watchos10.0 --product WatchApp || true
+          swift build -c release --sdk $(xcrun --sdk watchos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-watchos10.0 --product WatchApp
 
       - name: Create Payload and Structure IPA
         run: |
-          mkdir -p Payload/StrasbourgMap.app
+          # Créer l'arborescence complète pour l'iOS et la Watch app empaquetée
+          mkdir -p Payload/StrasbourgMap.app/Watch/WatchApp.app
           
-          # Copie l'exécutable iOS
+          # 1. Copie l'exécutable iOS principal
           if [ -f ".build/arm64-apple-ios/release/StrasbourgMap" ]; then
             cp .build/arm64-apple-ios/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
           elif [ -f ".build/release/StrasbourgMap" ]; then
             cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
           fi
           
-          # Ajoute l'Info.plist
+          # Ajoute l'Info.plist de l'app iOS
           if [ -f "Info.plist" ]; then
             cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
 
-          # Crée l'archive .ipa finale
+          # 2. Copie l'exécutable de la Watch App dans le sous-dossier "Watch"
+          if [ -f ".build/arm64-apple-watchos/release/WatchApp" ]; then
+            cp .build/arm64-apple-watchos/release/WatchApp Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          elif [ -f ".build/release/WatchApp" ]; then
+            cp .build/release/WatchApp Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          fi
+
+          # Ajoute le plist spécifique de la Watch App
+          if [ -f "WatchApp-Info.plist" ]; then
+            cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
+          fi
+
+          # 3. Crée l'archive .ipa finale
           zip -r StrasbourgMap.ipa Payload
 
       - name: Upload IPA Artifact
