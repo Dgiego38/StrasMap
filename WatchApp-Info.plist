@@ -7,16 +7,19 @@
     <key>CFBundleExecutable</key>
     <string>WatchApp</string>
     <key>CFBundleIdentifier</key>
-    <string>com.dgiego.StrasbourgMap.watchkitapp</string>
+    <string>com.dgiego.StrasbourgMap.watchapp</string>
     <key>CFBundleName</key>
-    <string>StrasbourgMap Watch App</string>
+    <string>StrasbourgMap Watch</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>WKWatchKitApp</key>
     <true/>
-    <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.dgiego.StrasbourgMap</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
 </dict>
 </plist>
