@@ -28,11 +28,13 @@ jobs:
           # Créer l'arborescence complète pour l'iOS et la Watch app empaquetée
           mkdir -p Payload/StrasbourgMap.app/Watch/WatchApp.app
           
-          # 1. Copie l'exécutable iOS principal
-          if [ -f ".build/arm64-apple-ios/release/StrasbourgMap" ]; then
-            cp .build/arm64-apple-ios/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
-          elif [ -f ".build/release/StrasbourgMap" ]; then
-            cp .build/release/StrasbourgMap Payload/StrasbourgMap.app/StrasbourgMap
+          # 1. Copie l'exécutable iOS principal (recherche automatique)
+          IOS_BIN=$(find .build -name "StrasbourgMap" -type f | grep -v "arm64-apple-watchos" | head -n 1)
+          if [ -n "$IOS_BIN" ]; then
+            cp "$IOS_BIN" Payload/StrasbourgMap.app/StrasbourgMap
+          else
+            echo "Erreur: Binaire iOS introuvable !"
+            exit 1
           fi
           
           # Ajoute l'Info.plist de l'app iOS
@@ -40,11 +42,13 @@ jobs:
             cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
 
-          # 2. Copie l'exécutable de la Watch App dans le sous-dossier "Watch"
-          if [ -f ".build/arm64-apple-watchos/release/WatchApp" ]; then
-            cp .build/arm64-apple-watchos/release/WatchApp Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
-          elif [ -f ".build/release/WatchApp" ]; then
-            cp .build/release/WatchApp Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          # 2. Copie l'exécutable de la Watch App dans le sous-dossier "Watch" (recherche automatique)
+          WATCH_BIN=$(find .build -name "WatchApp" -type f | head -n 1)
+          if [ -n "$WATCH_BIN" ]; then
+            cp "$WATCH_BIN" Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          else
+            echo "Erreur: Binaire WatchApp introuvable !"
+            exit 1
           fi
 
           # Ajoute le plist spécifique de la Watch App
