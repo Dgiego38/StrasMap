@@ -19,13 +19,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "WatchApp",
-            path: "StrasbourgMap",
-            sources: [
-                "WatchApp",
-                "Views/WatchOS",
-                "Models",
-                "Services"
-            ]
+            path: "WatchApp"
         )
     ]
 )
