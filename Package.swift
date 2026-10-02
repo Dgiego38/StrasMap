@@ -15,11 +15,13 @@ let package = Package(
         .executableTarget(
             name: "StrasbourgMap",
             path: "StrasbourgMap",
-            exclude: ["WatchApp"]
+            exclude: ["WatchApp"],
+            sources: ["Models", "Services", "Views", "StrasbourgMapApp.swift"]
         ),
         .executableTarget(
             name: "WatchApp",
-            path: "WatchApp"
+            path: "WatchApp",
+            exclude: []
         )
     ]
 )
