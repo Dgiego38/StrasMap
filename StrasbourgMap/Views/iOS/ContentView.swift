@@ -14,16 +14,13 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var selectedItem: MapItemModel?
     
-    // Simulation d'une liste de toilettes (à connecter à ton API toilettes si tu l'as déjà dans NetworkManager)
     @State private var toilets: [MapItemModel] = [
         MapItemModel(id: "t1", name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7475), type: .toilette, availableBikes: nil, details: "Ouvert 24/7 - Accès PMR")
     ]
 
-    // Fusion et Filtrage intelligent
     var filteredItems: [MapItemModel] {
         var items: [MapItemModel] = []
         
-        // Convertir les Vélhop
         let velhops = networkManager.velhops.compactMap { v -> MapItemModel? in
             guard let lat = v.lat, let lon = v.lon else { return nil }
             return MapItemModel(
@@ -32,14 +29,13 @@ struct ContentView: View {
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
                 type: .velhop,
                 availableBikes: v.nbrVelosDispo ?? 0,
-                details: "Station automatique Vélhop\nNombre de bornettes actives: \(v.nbrBornettesDispo ?? 0)"
+                details: "Station automatique Vélhop"
             )
         }
         
         items.append(contentsOf: velhops)
         items.append(contentsOf: toilets)
         
-        // Si recherche "velhop", on filtre et on trie par ordre croissant de vélos dispo
         let query = searchText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         
         if query == "velhop" {
@@ -54,7 +50,6 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 1. Carte épurée
             Map(position: $position) {
                 UserAnnotation()
 
@@ -63,13 +58,7 @@ struct ContentView: View {
                         Button(action: {
                             selectedItem = item
                         }) {
-                            Circle()
-                                .fill(item.type == .velhop ? ((item.availableBikes ?? 0) > 0 ? Color.blue : Color.red) : Color.orange)
-                                .frame(width: 12, height: 12)
-                                .padding(6)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
-                                .shadow(radius: 2)
+                            markerView(for: item)
                         }
                     }
                 }
@@ -89,7 +78,6 @@ struct ContentView: View {
                 }
             }
 
-            // 2. Barre de recherche avec indication textuelle
             VStack {
                 VStack(spacing: 4) {
                     HStack {
@@ -121,67 +109,86 @@ struct ContentView: View {
                 
                 Spacer()
 
-                // 3. Fiche détaillée enrichie
                 if let item = selectedItem {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.name)
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                if item.type == .velhop {
-                                    Text("🚲 \(item.availableBikes ?? 0) vélos disponibles")
-                                        .font(.subheadline)
-                                        .bold()
-                                        .foregroundColor(item.availableBikes ?? 0 > 0 ? .blue : .red)
-                                } else {
-                                    Text("🚻 Toilettes publiques")
-                                        .font(.subheadline)
-                                        .foregroundColor(.orange)
-                                }
-                            }
-                            Spacer()
-                            Button(action: { selectedItem = nil }) {
-                                Image(systemName: "xmark")
-                                    .padding(8)
-                                    .background(Color.secondary.opacity(0.2))
-                                    .clipShape(Circle())
-                            }
-                        }
-                        
-                        // Infos supplémentaires
-                        if let details = item.details {
-                            Text(details)
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Button(action: {
-                            let placemark = MKPlacemark(coordinate: item.coordinate)
-                            let mapItem = MKMapItem(placemark: placemark)
-                            mapItem.name = item.name
-                            mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-                        }) {
-                            Text("Y aller (Itinéraire)")
-                                .font(.system(size: 16, weight: .semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                        }
-                    }
-                    .padding(20)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(24)
-                    .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 10)
-                    .padding()
+                    detailsCard(for: item)
                 }
             }
         }
         .onAppear {
             networkManager.fetchVelhops()
         }
+    }
+    
+    // Extraire les vues complexes résout l'erreur de dépassement de temps du compilateur Swift
+    @ViewBuilder
+    private func markerView(for item: MapItemModel) -> some View {
+        let isVelhop = item.type == .velhop
+        let hasBikes = (item.availableBikes ?? 0) > 0
+        let color: Color = isVelhop ? (hasBikes ? .blue : .red) : .orange
+        
+        Circle()
+            .fill(color)
+            .frame(width: 12, height: 12)
+            .padding(6)
+            .background(.ultraThinMaterial)
+            .clipShape(Circle())
+            .shadow(radius: 2)
+    }
+    
+    @ViewBuilder
+    private func detailsCard(for item: MapItemModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if item.type == .velhop {
+                        Text("🚲 \(item.availableBikes ?? 0) vélos disponibles")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor((item.availableBikes ?? 0) > 0 ? .blue : .red)
+                    } else {
+                        Text("🚻 Toilettes publiques")
+                            .font(.subheadline)
+                            .foregroundColor(.orange)
+                    }
+                }
+                Spacer()
+                Button(action: { selectedItem = nil }) {
+                    Image(systemName: "xmark")
+                        .padding(8)
+                        .background(Color.secondary.opacity(0.2))
+                        .clipShape(Circle())
+                }
+            }
+            
+            if let details = item.details {
+                Text(details)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+
+            Button(action: {
+                let placemark = MKPlacemark(coordinate: item.coordinate)
+                let mapItem = MKMapItem(placemark: placemark)
+                mapItem.name = item.name
+                mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
+            }) {
+                Text("Y aller (Itinéraire)")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+        }
+        .padding(20)
+        .background(.ultraThinMaterial)
+        .cornerRadius(24)
+        .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 10)
+        .padding()
     }
 }
