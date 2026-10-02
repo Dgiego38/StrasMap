@@ -36,26 +36,21 @@ struct ContentView: View {
                             Button(action: {
                                 selectedVelhop = velhop
                             }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "bicycle")
-                                    if let velos = velhop.nbrVelosDispo {
-                                        Text("\(velos)")
-                                            .font(.system(size: 12, weight: .bold))
-                                    }
-                                }
-                                .padding(8)
-                                .background(.ultraThinMaterial)
-                                .foregroundColor(.blue)
-                                .clipShape(Capsule())
-                                .shadow(radius: 4)
+                                Image(systemName: "bicycle")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
+                                    .foregroundColor(.blue)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 3)
                             }
                         }
                     }
                 }
             }
-            .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank])))
+            .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank, .park, .hospital, .school, .gasStation])))
             .ignoresSafeArea()
-            .onChange(of: locationManager.authorizationStatus) { status in
+            .onChange(of: locationManager.authorizationStatus) { _, status in
                 if status == .authorizedWhenInUse || status == .authorizedAlways {
                     if let location = locationManager.currentLocation {
                         position = .region(
