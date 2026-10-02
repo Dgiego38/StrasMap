@@ -20,7 +20,5 @@
     <string>com.dgiego.StrasbourgMap</string>
     <key>WKWatchOnly</key>
     <false/>
-    <key>UILaunchScreen</key>
-    <dict/>
 </dict>
 </plist>
