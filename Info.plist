@@ -18,5 +18,7 @@
     <string>Nous avons besoin de votre position pour afficher les Vélhop, toilettes et poubelles les plus proches autour de vous à Strasbourg.</string>
     <key>UILaunchScreen</key>
     <dict/>
+    <key>WKCompanionAppBundleIdentifier</key>
+    <string>com.dgiego.StrasbourgMap.watchkitapp</string>
 </dict>
 </plist>
