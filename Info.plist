@@ -16,5 +16,7 @@
     <true/>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Nous avons besoin de votre position pour afficher les Vélhop, toilettes et poubelles les plus proches autour de vous à Strasbourg.</string>
+    <key>UILaunchScreen</key>
+    <dict/>
 </dict>
 </plist>
