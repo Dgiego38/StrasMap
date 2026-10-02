@@ -9,16 +9,23 @@ let package = Package(
     ],
     products: [
         .executable(name: "StrasbourgMap", targets: ["StrasbourgMap"]),
-        .library(name: "WatchApp", targets: ["WatchApp"])
+        .executable(name: "WatchApp", targets: ["WatchApp"])
     ],
     targets: [
         .executableTarget(
             name: "StrasbourgMap",
-            path: "StrasbourgMap"
+            path: "StrasbourgMap",
+            exclude: ["WatchApp"]
         ),
-        .target(
+        .executableTarget(
             name: "WatchApp",
-            path: "WatchApp"
+            path: "StrasbourgMap",
+            sources: [
+                "WatchApp",
+                "Views/WatchOS",
+                "Models",
+                "Services"
+            ]
         )
     ]
 )
