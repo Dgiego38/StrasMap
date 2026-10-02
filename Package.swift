@@ -23,5 +23,5 @@ let package = Package(
             path: "WatchApp",
             exclude: []
         )
-    ]
+    ] 
 )
