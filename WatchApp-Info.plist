@@ -18,7 +18,5 @@
     <true/>
     <key>WKCompanionAppBundleIdentifier</key>
     <string>com.dgiego.StrasbourgMap</string>
-    <key>WKWatchOnly</key>
-    <false/>
 </dict>
 </plist>
