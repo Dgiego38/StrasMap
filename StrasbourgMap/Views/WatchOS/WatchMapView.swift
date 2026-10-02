@@ -61,4 +61,4 @@ struct WatchMapView: View {
             }
         }
     }
-} 
+}
