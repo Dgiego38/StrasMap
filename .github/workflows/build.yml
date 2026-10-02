@@ -26,41 +26,43 @@ jobs:
       - name: Create Independent IPAs
         run: |
           # --- 1. CRÉATION DE L'IPA IOS ---
-          mkdir -p Payload-iOS/StrasbourgMap.app
+          mkdir -p Payload/StrasbourgMap.app
           
           IOS_BIN=$(find .build -name "StrasbourgMap" -type f | grep -v "arm64-apple-watchos" | head -n 1)
           if [ -n "$IOS_BIN" ]; then
-            cp "$IOS_BIN" Payload-iOS/StrasbourgMap.app/StrasbourgMap
+            cp "$IOS_BIN" Payload/StrasbourgMap.app/StrasbourgMap
           else
             echo "Erreur: Binaire iOS introuvable !"
             exit 1
           fi
           
           if [ -f "Info.plist" ]; then
-            cp Info.plist Payload-iOS/StrasbourgMap.app/Info.plist
+            cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
           
-          find Payload-iOS -name ".DS_Store" -delete
-          zip -r StrasbourgMap-iOS.ipa Payload-iOS
+          find Payload -name ".DS_Store" -delete
+          zip -r StrasbourgMap-iOS.ipa Payload
+          rm -rf Payload
 
           # --- 2. CRÉATION DE L'IPA WATCHOS ---
-          mkdir -p Payload-Watch/WatchApp.app
+          mkdir -p Payload/WatchApp.app
           
           WATCH_BIN=$(find .build -name "WatchApp" -type f | head -n 1)
           if [ -n "$WATCH_BIN" ]; then
-            cp "$WATCH_BIN" Payload-Watch/WatchApp.app/WatchApp
-            chmod +x Payload-Watch/WatchApp.app/WatchApp
+            cp "$WATCH_BIN" Payload/WatchApp.app/WatchApp
+            chmod +x Payload/WatchApp.app/WatchApp
           else
             echo "Erreur: Binaire WatchApp introuvable !"
             exit 1
           fi
           
           if [ -f "WatchApp-Info.plist" ]; then
-            cp WatchApp-Info.plist Payload-Watch/WatchApp.app/Info.plist
+            cp WatchApp-Info.plist Payload/WatchApp.app/Info.plist
           fi
           
-          find Payload-Watch -name ".DS_Store" -delete
-          zip -r StrasbourgMap-Watch.ipa Payload-Watch
+          find Payload -name ".DS_Store" -delete
+          zip -r StrasbourgMap-Watch.ipa Payload
+          rm -rf Payload
 
       - name: Upload IPA Artifacts
         uses: actions/upload-artifact@v4
