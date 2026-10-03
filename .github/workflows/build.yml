@@ -54,14 +54,15 @@ jobs:
           chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
           chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/WatchAppExtension
 
-          # 4. Configurer dynamiquement les Info.plist et lier le companion ID
+          # 4. Configurer dynamiquement les Info.plist et synchroniser les identifiants
           if [ -f "WatchApp-Info.plist" ]; then
             cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
             
-            # Lecture dynamique du Bundle ID iOS et injection automatique dans la montre
+            # Lecture dynamique du Bundle ID iOS et injection automatique
             IOS_BUNDLE_ID=$(defaults read "$(pwd)/Payload/StrasbourgMap.app/Info.plist" CFBundleIdentifier)
             if [ -n "$IOS_BUNDLE_ID" ]; then
               /usr/libexec/PlistBuddy -c "Set :WKCompanionAppBundleIdentifier $IOS_BUNDLE_ID" Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
+              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $IOS_BUNDLE_ID.watchkitapp" Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
             fi
           fi
 

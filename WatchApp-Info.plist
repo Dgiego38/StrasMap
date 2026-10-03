@@ -17,7 +17,7 @@
     <key>WKWatchKitApp</key>
     <true/>
     <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.dgiego.StrasbourgMap.2D6FQ6NWKS</string>
+    <string>com.dgiego.StrasbourgMap</string>
     <key>UIDeviceFamily</key>
     <array>
         <integer>4</integer>
