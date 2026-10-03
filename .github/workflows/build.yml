@@ -59,14 +59,14 @@ jobs:
             cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
           fi
 
-          # Créer un Info.plist minimal pour l'extension .appex
+          # Créer un Info.plist minimal pour l'extension .appex avec le Bundle ID préfixé exact
           cat << 'EOF' > Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>CFBundleIdentifier</key>
-              <string>com.dgiego.StrasbourgMap.watchkitapp.watchkitextension</string>
+              <string>com.dgiego.StrasbourgMap.2D6FQ6NWKS.watchkitapp.watchkitextension</string>
               <key>CFBundleExecutable</key>
               <string>WatchAppExtension</string>
               <key>CFBundleName</key>
