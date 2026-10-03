@@ -23,12 +23,12 @@ jobs:
         run: |
           swift build -c release --sdk $(xcrun --sdk watchos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-watchos10.0 --product WatchApp
 
-      - name: Create Nested Payload IPA
+      - name: Create Nested Payload with Watch Extension Structure
         run: |
-          # Créer l'arborescence standard requise pour l'imbrication iOS/Watch
-          mkdir -p Payload/StrasbourgMap.app/Watch/WatchApp.app
+          # 1. Créer l'arborescence complète exigée par installd (App + Watch App + Extension PlugIn)
+          mkdir -p Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex
           
-          # 1. Copier le binaire et le plist iOS
+          # 2. Copier le binaire et le plist iOS
           IOS_BIN=$(find .build -name "StrasbourgMap" -type f | grep -v "arm64-apple-watchos" | head -n 1)
           if [ -n "$IOS_BIN" ]; then
             cp "$IOS_BIN" Payload/StrasbourgMap.app/StrasbourgMap
@@ -41,21 +41,50 @@ jobs:
             cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
 
-          # 2. Copier le binaire et le plist de la Watch App dans le dossier Watch/WatchApp.app
+          # 3. Récupérer le binaire WatchApp compilé
           WATCH_BIN=$(find .build -name "WatchApp" -type f | head -n 1)
-          if [ -n "$WATCH_BIN" ]; then
-            cp "$WATCH_BIN" Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
-            chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
-          else
+          if [ -z "$WATCH_BIN" ]; then
             echo "Erreur: Binaire WatchApp introuvable !"
             exit 1
           fi
 
+          # Mettre le binaire dans la Watch App et dans l'extension pour satisfaire l'installateur
+          cp "$WATCH_BIN" Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          cp "$WATCH_BIN" Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/WatchAppExtension
+          chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+          chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/WatchAppExtension
+
+          # 4. Configurer les Info.plist nécessaires
           if [ -f "WatchApp-Info.plist" ]; then
             cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
           fi
 
-          # 3. Nettoyer et zipper
+          # Créer un Info.plist minimal pour l'extension .appex
+          cat << 'EOF' > Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleIdentifier</key>
+              <string>com.dgiego.StrasbourgMap.watchkitapp.watchkitextension</string>
+              <key>CFBundleExecutable</key>
+              <string>WatchAppExtension</string>
+              <key>CFBundleName</key>
+              <string>WatchApp Extension</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>NSExtension</key>
+              <dict>
+                  <key>NSExtensionPointIdentifier</key>
+                  <string>com.apple.watchkit</string>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
+          # 5. Nettoyer et zipper
           find Payload -name ".DS_Store" -delete
           zip -r StrasbourgMap.ipa Payload
 
