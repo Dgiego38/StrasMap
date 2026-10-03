@@ -62,25 +62,24 @@ jobs:
           if [ -f "WatchApp-Info.plist" ]; then
             cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
           else
-            # Créer un Info.plist minimaliste pour l'app Watch si absent
             cat << 'EOF' > Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>CFBundleIdentifier</key>
-                <string>com.strasbourg.map.watchkitapp</string>
-                <key>CFBundleExecutable</key>
-                <string>WatchApp</string>
-                <key>CFBundleName</key>
-                <string>WatchApp</string>
-                <key>CFBundleVersion</key>
-                <string>1</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-            </dict>
-            </plist>
-            EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.dgiego.StrasbourgMap.watchkitapp</string>
+    <key>CFBundleExecutable</key>
+    <string>WatchApp</string>
+    <key>CFBundleName</key>
+    <string>WatchApp</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+</dict>
+</plist>
+EOF
           fi
 
           # Récupération propre du Bundle ID iOS et mise en correspondance Watch
@@ -92,28 +91,28 @@ jobs:
 
           # Créer un Info.plist propre pour l'extension .appex de la montre
           cat << EOF > Payload/StrasbourgMap.app/Watch/WatchApp.app/PlugIns/WatchAppExtension.appex/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleIdentifier</key>
-              <string>${IOS_BUNDLE_ID}.watchkitapp.watchkitextension</string>
-              <key>CFBundleExecutable</key>
-              <string>WatchAppExtension</string>
-              <key>CFBundleName</key>
-              <string>WatchApp Extension</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>NSExtension</key>
-              <dict>
-                  <key>NSExtensionPointIdentifier</key>
-                  <string>com.apple.watchkit</string>
-              </dict>
-          </dict>
-          </plist>
-          EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>${IOS_BUNDLE_ID}.watchkitapp.watchkitextension</string>
+    <key>CFBundleExecutable</key>
+    <string>WatchAppExtension</string>
+    <key>CFBundleName</key>
+    <string>WatchApp Extension</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.watchkit</string>
+    </dict>
+</dict>
+</plist>
+EOF
 
           # 5. Nettoyer les fichiers superflus et zipper l'IPA
           find Payload -name ".DS_Store" -delete
