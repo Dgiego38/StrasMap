@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>StrasbourgMap</string>
     <key>CFBundleIdentifier</key>
-    <string>com.dgiego.StrasbourgMap</string>
+    <string>com.dgiego.StrasbourgMap.2D6FQ6NWKS</string>
     <key>CFBundleName</key>
     <string>StrasbourgMap</string>
     <key>CFBundleShortVersionString</key>
@@ -16,9 +16,15 @@
     <true/>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Nous avons besoin de votre position pour afficher les Vélhop, toilettes et poubelles les plus proches autour de vous à Strasbourg.</string>
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+    </array>
     <key>UILaunchScreen</key>
     <dict/>
-    <key>WKCompanionAppBundleIdentifier</key>
-    <string>com.dgiego.StrasbourgMap.watchkitapp</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
 </dict>
 </plist>
