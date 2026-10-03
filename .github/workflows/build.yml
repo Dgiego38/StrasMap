@@ -1,4 +1,4 @@
-name: Build Independent IPAs (iOS & WatchOS)
+name: Build Universal IPA (iOS & WatchOS Embedded)
 
 on:
   push:
@@ -23,11 +23,12 @@ jobs:
         run: |
           swift build -c release --sdk $(xcrun --sdk watchos --show-sdk-path) -Xswiftc -target -Xswiftc arm64-apple-watchos10.0 --product WatchApp
 
-      - name: Create Independent IPAs
+      - name: Create Nested Payload IPA
         run: |
-          # --- 1. CRÉATION DE L'IPA IOS ---
-          mkdir -p Payload/StrasbourgMap.app
+          # Créer l'arborescence standard requise pour l'imbrication iOS/Watch
+          mkdir -p Payload/StrasbourgMap.app/Watch/WatchApp.app
           
+          # 1. Copier le binaire et le plist iOS
           IOS_BIN=$(find .build -name "StrasbourgMap" -type f | grep -v "arm64-apple-watchos" | head -n 1)
           if [ -n "$IOS_BIN" ]; then
             cp "$IOS_BIN" Payload/StrasbourgMap.app/StrasbourgMap
@@ -39,35 +40,27 @@ jobs:
           if [ -f "Info.plist" ]; then
             cp Info.plist Payload/StrasbourgMap.app/Info.plist
           fi
-          
-          find Payload -name ".DS_Store" -delete
-          zip -r StrasbourgMap-iOS.ipa Payload
-          rm -rf Payload
 
-          # --- 2. CRÉATION DE L'IPA WATCHOS ---
-          mkdir -p Payload/WatchApp.app
-          
+          # 2. Copier le binaire et le plist de la Watch App dans le dossier Watch/WatchApp.app
           WATCH_BIN=$(find .build -name "WatchApp" -type f | head -n 1)
           if [ -n "$WATCH_BIN" ]; then
-            cp "$WATCH_BIN" Payload/WatchApp.app/WatchApp
-            chmod +x Payload/WatchApp.app/WatchApp
+            cp "$WATCH_BIN" Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
+            chmod +x Payload/StrasbourgMap.app/Watch/WatchApp.app/WatchApp
           else
             echo "Erreur: Binaire WatchApp introuvable !"
             exit 1
           fi
-          
-          if [ -f "WatchApp-Info.plist" ]; then
-            cp WatchApp-Info.plist Payload/WatchApp.app/Info.plist
-          fi
-          
-          find Payload -name ".DS_Store" -delete
-          zip -r StrasbourgMap-Watch.ipa Payload
-          rm -rf Payload
 
-      - name: Upload IPA Artifacts
+          if [ -f "WatchApp-Info.plist" ]; then
+            cp WatchApp-Info.plist Payload/StrasbourgMap.app/Watch/WatchApp.app/Info.plist
+          fi
+
+          # 3. Nettoyer et zipper
+          find Payload -name ".DS_Store" -delete
+          zip -r StrasbourgMap.ipa Payload
+
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StrasbourgMap-IPAs
-          path: |
-            StrasbourgMap-iOS.ipa
-            StrasbourgMap-Watch.ipa
+          name: StrasbourgMap-IPA
+          path: StrasbourgMap.ipa

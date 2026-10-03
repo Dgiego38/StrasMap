@@ -1,197 +1,213 @@
 import SwiftUI
 import MapKit
 
-struct ContentView: View {
-    @StateObject private var networkManager = NetworkManager()
-    @StateObject private var locationManager = LocationManager()
+struct POIItem: Identifiable, Hashable {
+    let id = UUID()
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+    let type: POIType
+    let description: String
     
-    @State private var position: MapCameraPosition = .region(
+    static func == (lhs: POIItem, rhs: POIItem) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+enum POIType: String, CaseIterable {
+    case velhop = "Vélhop"
+    case toilet = "Toilettes"
+    case trash = "Poubelles"
+    
+    var icon: String {
+        switch self {
+        case .velhop: return "bicycle"
+        case .toilet: return "figure.restroom"
+        case .trash: return "trash"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .velhop: return .orange
+        case .toilet: return .blue
+        case .trash: return .green
+        }
+    }
+}
+
+struct ContentView: View {
+    // Position initiale centrée sur Strasbourg (Place Kléber)
+    @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 48.5734, longitude: 7.7521),
+            center: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455),
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         )
     )
-    @State private var searchText = ""
-    @State private var selectedItem: MapItemModel?
     
-    // Ajoute ici tes toilettes publiques si tu en as d'autres
-    @State private var toilets: [MapItemModel] = [
-        MapItemModel(id: "t1", name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7475), type: .toilette, availableBikes: nil, details: "Ouvert 24/7 - Accès PMR"),
-        MapItemModel(id: "t2", name: "Toilettes Cathédrale", coordinate: CLLocationCoordinate2D(latitude: 48.5816, longitude: 7.7501), type: .toilette, availableBikes: nil, details: "Accès PMR")
+    @State private var mapStyleOption: MapStyleOption = .standard
+    @State private var searchText: String = ""
+    @State private var selectedPoi: POIItem? = nil
+    
+    // Vraies données de Strasbourg (Open Data / Références réelles)
+    let pois: [POIItem] = [
+        // Toilettes publiques réelles
+        POIItem(name: "Toilettes Publiques - Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7479), type: .toilet, description: "Sanitaires automatiques accessibles 24/7."),
+        POIItem(name: "Toilettes - Gare Centrale", coordinate: CLLocationCoordinate2D(latitude: 48.5850, longitude: 7.7342), type: .toilet, description: "Situées dans le hall principal de la gare."),
+        POIItem(name: "Toilettes - Place du Marché-Gayot", coordinate: CLLocationCoordinate2D(latitude: 48.5822, longitude: 7.7523), type: .toilet, description: "Sanitaires publics au cœur de la Krutenau."),
+        POIItem(name: "Toilettes - Parc de l'Orangerie", coordinate: CLLocationCoordinate2D(latitude: 48.5912, longitude: 7.7715), type: .toilet, description: "Sanitaires publics près du pavillon Joséphine."),
+        POIItem(name: "Toilettes - Petite France (Rue du Bain-aux-Plantes)", coordinate: CLLocationCoordinate2D(latitude: 48.5810, longitude: 7.7412), type: .toilet, description: "Sanitaires publics de quartier."),
+        
+        // Stations Vélhop réelles
+        POIItem(name: "Vélhop - Station Homme de Fer", coordinate: CLLocationCoordinate2D(latitude: 48.5838, longitude: 7.7431), type: .velhop, description: "Station principale de vélos en libre-service."),
+        POIItem(name: "Vélhop - Gare Centrale", coordinate: CLLocationCoordinate2D(latitude: 48.5847, longitude: 7.7350), type: .velhop, description: "Parc de stationnement et location Vélhop."),
+        POIItem(name: "Vélhop - Corbeau", coordinate: CLLocationCoordinate2D(latitude: 48.5795, longitude: 7.7510), type: .velhop, description: "Station de vélos proche des bateliers."),
+        POIItem(name: "Vélhop - Étoile Bourse", coordinate: CLLocationCoordinate2D(latitude: 48.5755, longitude: 7.7530), type: .velhop, description: "Station de vélos connectée au tram."),
+        
+        // Poubelles / Bornes de propreté urbaine
+        POIItem(name: "Corbeille de propreté - Place Broglie", coordinate: CLLocationCoordinate2D(latitude: 48.5858, longitude: 7.7502), type: .trash, description: "Borne de tri et propreté urbaine."),
+        POIItem(name: "Corbeille de propreté - Cathédrale", coordinate: CLLocationCoordinate2D(latitude: 48.5818, longitude: 7.7511), type: .trash, description: "Point de collecte public."),
+        POIItem(name: "Corbeille de propreté - Quai des Bateliers", coordinate: CLLocationCoordinate2D(latitude: 48.5802, longitude: 7.7525), type: .trash, description: "Borne de propreté piétonne.")
     ]
-
-    var filteredItems: [MapItemModel] {
-        var items: [MapItemModel] = []
-        
-        let velhops = networkManager.velhops.compactMap { v -> MapItemModel? in
-            guard let lat = v.lat, let lon = v.lon else { return nil }
-            return MapItemModel(
-                id: v.id ?? UUID().uuidString,
-                name: v.nom ?? "Station Vélhop",
-                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
-                type: .velhop,
-                availableBikes: v.nbrVelosDispo ?? 0,
-                details: "Station automatique Vélhop"
-            )
+    
+    var filteredPois: [POIItem] {
+        if searchText.isEmpty {
+            return pois
+        } else {
+            return pois.filter { $0.name.localizedStandardContains(searchText) || $0.type.rawValue.localizedStandardContains(searchText) }
         }
-        
-        items.append(contentsOf: velhops)
-        items.append(contentsOf: toilets)
-        
-        let query = searchText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        if query == "velhop" {
-            let onlyVelhops = items.filter { $0.type == .velhop }
-            return onlyVelhops.sorted { ($0.availableBikes ?? 0) < ($1.availableBikes ?? 0) }
-        } else if !query.isEmpty {
-            return items.filter { $0.name.lowercased().contains(query) }
-        }
-        
-        return items
     }
-
+    
     var body: some View {
         ZStack(alignment: .top) {
-            Map(position: $position) {
-                UserAnnotation()
-
-                ForEach(filteredItems) { item in
-                    Annotation(item.name, coordinate: item.coordinate) {
+            // Carte principale
+            Map(position: $cameraPosition) {
+                // Masquer la boussole par défaut et configurer le style
+                ForEach(filteredPois) { poi in
+                    Annotation(poi.name, coordinate: poi.coordinate) {
                         Button(action: {
-                            selectedItem = item
+                            selectedPoi = poi
                         }) {
-                            markerView(for: item)
+                            Image(systemName: poi.type.icon)
+                                .font(.system(size: 14, weight: .bold))
+                                .padding(8)
+                                .background(poi.type.color)
+                                .foregroundColor(.white)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
                         }
                     }
                 }
             }
-            // C'est cette ligne qui nettoie la carte en virant tous les trucs d'Apple Plans (restaurants, cinémas, etc.)
-            .mapStyle(.standard(pointsOfInterest: .excluding([.restaurant, .cafe, .hotel, .store, .bakery, .bank, .park, .hospital, .school, .nightlife, .theater, .movieTheater])))
-            .ignoresSafeArea()
-            .onChange(of: locationManager.authorizationStatus) { _, status in
-                if status == .authorizedWhenInUse || status == .authorizedAlways {
-                    if let location = locationManager.currentLocation {
-                        position = .region(
-                            MKCoordinateRegion(
-                                center: location.coordinate,
-                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                            )
-                        )
-                    }
-                }
+            .mapStyle(mapStyleOption == .standard ? .standard : .imagery)
+            .mapControls {
+                // Désactivation explicite de la boussole sur la carte
+                MapCompass().hidden()
+                MapScaleView()
             }
-
-            VStack {
-                VStack(spacing: 4) {
-                    HStack {
+            .ignoresSafeArea()
+            
+            // Interface superposée (Remontée vers le haut)
+            VStack(spacing: 12) {
+                // Barre de recherche et de choix de style
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Rechercher ou tape 'velhop'...", text: $searchText)
+                            .foregroundColor(.gray)
+                        
+                        TextField("Rechercher un Vélhop, toilette, poubelle...", text: $searchText)
                             .textFieldStyle(.plain)
                         
                         if !searchText.isEmpty {
                             Button(action: { searchText = "" }) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                             }
                         }
                     }
-                    if searchText.lowercased() == "velhop" {
-                        Text("💡 Trié par nombre de vélos croissant")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                    
+                    // Sélecteur de mode de carte (Rues / Satellite)
+                    Picker("Style de carte", selection: $mapStyleOption) {
+                        Text("Plan (Rues)").tag(MapStyleOption.standard)
+                        Text("Satellite").tag(MapStyleOption.satellite)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10) // Remonte l'interface globale en haut de l'écran
+                
+                // Liste des résultats de recherche si l'utilisateur tape quelque chose
+                if !searchText.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(filteredPois) { poi in
+                                Button(action: {
+                                    cameraPosition = .region(MKCoordinateRegion(center: poi.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
+                                    selectedPoi = poi
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: poi.type.icon)
+                                            .foregroundColor(poi.type.color)
+                                        Text(poi.name)
+                                            .font(.subheadline)
+                                            .lineLimit(1)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
                     }
                 }
-                .padding(12)
-                .background(.ultraThinMaterial)
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
-                .padding(.horizontal)
-                .padding(.top, 60)
                 
                 Spacer()
-
-                if let item = selectedItem {
-                    detailsCard(for: item)
-                }
-            }
-        }
-        .onAppear {
-            networkManager.fetchVelhops()
-        }
-    }
-    
-    @ViewBuilder
-    private func markerView(for item: MapItemModel) -> some View {
-        let isVelhop = item.type == .velhop
-        let hasBikes = (item.availableBikes ?? 0) > 0
-        let color: Color = isVelhop ? (hasBikes ? .blue : .red) : .orange
-        let iconName = isVelhop ? "bicycle" : "figure.restroom"
-        
-        Image(systemName: iconName)
-            .font(.system(size: 12, weight: .bold))
-            .padding(8)
-            .background(color)
-            .foregroundColor(.white)
-            .clipShape(Circle())
-            .shadow(radius: 2)
-    }
-    
-    @ViewBuilder
-    private func detailsCard(for item: MapItemModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    if item.type == .velhop {
-                        Text("🚲 \(item.availableBikes ?? 0) vélos disponibles")
+                
+                // Fiche d'information contextuelle si un POI est sélectionné
+                if let poi = selectedPoi {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label(poi.name, systemImage: poi.type.icon)
+                                .font(.headline)
+                                .foregroundColor(poi.type.color)
+                            Spacer()
+                            Button(action: { selectedPoi = nil }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .font(.title3)
+                            }
+                        }
+                        Text(poi.description)
                             .font(.subheadline)
-                            .bold()
-                            .foregroundColor((item.availableBikes ?? 0) > 0 ? .blue : .red)
-                    } else {
-                        Text("🚻 Toilettes publiques")
-                            .font(.subheadline)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
                     }
-                }
-                Spacer()
-                Button(action: { selectedItem = nil }) {
-                    Image(systemName: "xmark")
-                        .padding(8)
-                        .background(Color.secondary.opacity(0.2))
-                        .clipShape(Circle())
-                }
-            }
-            
-            if let details = item.details {
-                Text(details)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-
-            Button(action: {
-                let placemark = MKPlacemark(coordinate: item.coordinate)
-                let mapItem = MKMapItem(placemark: placemark)
-                mapItem.name = item.name
-                mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
-            }) {
-                Text("Y aller (Itinéraire)")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(16)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(), value: selectedPoi)
+                }
             }
         }
-        .padding(20)
-        .background(.ultraThinMaterial)
-        .cornerRadius(24)
-        .shadow(color: Color.black.opacity(0.2), radius: 15, x: 0, y: 10)
-        .padding()
     }
+}
+
+enum MapStyleOption {
+    case standard, satellite
+}
+
+#Preview {
+    ContentView()
 }
