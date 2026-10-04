@@ -1,138 +1,6 @@
 import SwiftUI
 import MapKit
 
-// MARK: - Modèles de Données & ViewModel
-
-struct POIItem: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let coordinate: CLLocationCoordinate2D
-    let type: POIType
-    let description: String
-    
-    static func == (lhs: POIItem, rhs: POIItem) -> Bool {
-        lhs.id == rhs.id
-    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
-enum POIType: String, CaseIterable {
-    case velhop = "Vélhop"
-    case toilet = "Toilettes"
-    case trash = "Poubelles"
-    
-    var icon: String {
-        switch self {
-        case .velhop: return "bicycle"
-        case .toilet: return "figure.restroom"
-        case .trash: return "trash"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .velhop: return .orange
-        case .toilet: return .blue
-        case .trash: return .green
-        }
-    }
-}
-
-@MainActor
-class MapViewModel: ObservableObject {
-    @Published var pois: [POIItem] = []
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String? = nil
-
-    // Structures pour décoder l'Open Data de Strasbourg (API v2.1)
-    private struct OpenDataResponse: Codable {
-        let results: [Record]
-    }
-    
-    private struct Record: Codable {
-        let recordid: String?
-        let nom: String?
-        let adresse: String?
-        let libelle: String?
-        let type: String?
-        let geo_point_2d: GeoPoint?
-    }
-    
-    private struct GeoPoint: Codable {
-        let lat: Double
-        let lon: Double
-    }
-
-    func loadAllData() async {
-        isLoading = true
-        errorMessage = nil
-        
-        do {
-            async let velhopData = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/stations-velhop/records?limit=100", type: .velhop)
-            async let toiletsLieux = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/lieux_toilettes_publiques/records?limit=100", type: .toilet)
-            async let toiletsProprete = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/toilette_publique/records?limit=100", type: .toilet)
-            async let trashData = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/corbeilles_de_proprete/records?limit=100", type: .trash)
-            
-            let results = try await [velhopData, toiletsLieux, toiletsProprete, trashData]
-            let allItems = results.flatMap { $0 }
-            
-            // Dédoublonnage pour éviter les doublons entre les deux datasets de toilettes
-            self.pois = deduplicate(toilets: allItems)
-            self.isLoading = false
-        } catch {
-            self.errorMessage = "Impossible de charger les données Open Data."
-            self.isLoading = false
-        }
-    }
-    
-    private func fetchDataset(urlString: String, type: POIType) async throws -> [POIItem] {
-        guard let url = URL(string: urlString) else { return [] }
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let decoded = try JSONDecoder().decode(OpenDataResponse.self, from: data)
-        
-        var items: [POIItem] = []
-        for record in decoded.results {
-            if let point = record.geo_point_2d {
-                let name = record.nom ?? record.libelle ?? (type == .velhop ? "Station Vélhop" : type == .toilet ? "Toilette publique" : "Corbeille de propreté")
-                let address = record.adresse ?? "Strasbourg"
-                
-                let item = POIItem(
-                    name: name,
-                    coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
-                    type: type,
-                    description: address
-                )
-                items.append(item)
-            }
-        }
-        return items
-    }
-    
-    private func deduplicate(toilets: [POIItem]) -> [POIItem] {
-        var unique: [POIItem] = []
-        for item in toilets {
-            // Si c'est une toilette, on vérifie qu'il n'y en a pas une autre à < 10m
-            if item.type == .toilet {
-                let isDuplicate = unique.contains { existing in
-                    if existing.type != .toilet { return false }
-                    let loc1 = CLLocation(latitude: existing.coordinate.latitude, longitude: existing.coordinate.longitude)
-                    let loc2 = CLLocation(latitude: item.coordinate.latitude, longitude: item.coordinate.longitude)
-                    return loc1.distance(from: loc2) < 10.0
-                }
-                if !isDuplicate { unique.append(item) }
-            } else {
-                unique.append(item)
-            }
-        }
-        return unique
-    }
-}
-
-// MARK: - Vue Principale
-
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
     
@@ -162,7 +30,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            // Carte principale
+            // Carte principale avec MapKit (style Apple Maps)
             Map(position: $cameraPosition) {
                 ForEach(filteredPois) { poi in
                     Annotation(poi.name, coordinate: poi.coordinate) {
@@ -180,14 +48,16 @@ struct ContentView: View {
                     }
                 }
             }
-            .mapStyle(mapStyleOption == .standard ? .standard : .imagery)
+            // Utilisation d'un style satellite réaliste d'Apple Maps avec relief 3D
+            .mapStyle(mapStyleOption == .standard ? .standard : .imagery(elevation: .realistic))
             .mapControls {
-                MapCompass().hidden()
+                MapCompass()
                 MapScaleView()
+                MapUserLocationButton()
             }
             .ignoresSafeArea()
             
-            // Interface superposée
+            // Interface utilisateur superposée
             VStack(spacing: 12) {
                 // Barre de recherche et de choix de style
                 VStack(spacing: 10) {
@@ -215,9 +85,9 @@ struct ContentView: View {
                     .cornerRadius(12)
                     .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                     
-                    // Sélecteur de mode de carte (Rues / Satellite)
+                    // Sélecteur de mode de carte (Plan / Satellite réaliste)
                     Picker("Style de carte", selection: $mapStyleOption) {
-                        Text("Plan (Rues)").tag(MapStyleOption.standard)
+                        Text("Plan").tag(MapStyleOption.standard)
                         Text("Satellite").tag(MapStyleOption.satellite)
                     }
                     .pickerStyle(.segmented)
@@ -225,7 +95,7 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
                 
-                // Liste horizontale des résultats si recherche active
+                // Liste horizontale des résultats filtrés si recherche active
                 if !searchText.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -284,7 +154,6 @@ struct ContentView: View {
             }
         }
         .task {
-            // Charger les vraies données dès l'affichage de la vue
             await viewModel.loadAllData()
         }
     }
@@ -294,6 +163,47 @@ enum MapStyleOption {
     case standard, satellite
 }
 
-#Preview {
-    ContentView()
+// MARK: - ViewModel connecté à vos fichiers de Modèles
+@MainActor
+class MapViewModel: ObservableObject {
+    @Published var pois: [POIItem] = []
+    @Published var isLoading: Bool = false
+
+    func loadAllData() async {
+        isLoading = true
+        var loadedPois: [POIItem] = []
+        
+        // 1. Chargement des Toilettes via ToiletteModel (Croisement des datasets)
+        do {
+            let toilets = try await ToiletteModel.fetchAndMergeToilets()
+            for t in toilets {
+                loadedPois.append(POIItem(
+                    name: t.nom,
+                    coordinate: t.coordinate,
+                    type: .toilet,
+                    description: t.adresse ?? "Toilette publique à Strasbourg"
+                ))
+            }
+        } catch {
+            print("Erreur chargement toilettes : \(error)")
+        }
+        
+        // 2. Chargement des Vélhops via VelhopModel (si ton VelhopModel est prêt)
+        do {
+            let stations = try await VelhopModel.fetchStations()
+            for s in stations {
+                loadedPois.append(POIItem(
+                    name: s.nom,
+                    coordinate: s.coordinate,
+                    type: .velhop,
+                    description: "Station Vélhop - Strasbourg"
+                ))
+            }
+        } catch {
+            print("Erreur chargement Vélhop : \(error)")
+        }
+        
+        self.pois = loadedPois
+        self.isLoading = false
+    }
 }
