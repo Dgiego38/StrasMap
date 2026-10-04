@@ -177,11 +177,11 @@ class MapViewModel: ObservableObject {
         do {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
-                let adresseText = t.adresse ?? "Adresse non spécifiée"
+                let adresseText = t.address ?? "Adresse non spécifiée"
                 let description = "📍 \(adresseText)"
                 
                 loadedPois.append(POIItem(
-                    name: t.nom,
+                    name: t.name,
                     coordinate: t.coordinate,
                     type: .toilet,
                     description: description
