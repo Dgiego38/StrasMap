@@ -33,7 +33,7 @@ struct ContentView: View {
             // Carte principale avec MapKit (style Apple Maps)
             Map(position: $cameraPosition) {
                 ForEach(filteredPois) { poi in
-                    Annotation(poi.name, coordinate: poi.coordinate) {
+                    Annotation("", coordinate: poi.coordinate) {
                         Button(action: {
                             selectedPoi = poi
                         }) {
@@ -50,7 +50,6 @@ struct ContentView: View {
                     }
                 }
             }
-            // Utilisation d'un style satellite réaliste d'Apple Maps avec relief 3D
             .mapStyle(mapStyleOption == .standard ? .standard : .imagery(elevation: .realistic))
             .mapControls {
                 MapCompass()
@@ -179,7 +178,7 @@ class MapViewModel: ObservableObject {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
                 let adresseText = t.adresse ?? "Adresse non spécifiée"
-                let description = "📍 \(adresseText)\nSource : \(t.source == "lieux" ? "Lieux publics" : "Propreté urbaine")"
+                let description = "📍 \(adresseText)"
                 
                 loadedPois.append(POIItem(
                     name: t.nom,
