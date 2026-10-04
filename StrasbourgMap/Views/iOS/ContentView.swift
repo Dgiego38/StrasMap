@@ -163,7 +163,7 @@ enum MapStyleOption {
     case standard, satellite
 }
 
-// MARK: - ViewModel connecté à vos fichiers de Modèles
+// MARK: - ViewModel connecté à tes fichiers de Modèles
 @MainActor
 class MapViewModel: ObservableObject {
     @Published var pois: [POIItem] = []
@@ -173,7 +173,7 @@ class MapViewModel: ObservableObject {
         isLoading = true
         var loadedPois: [POIItem] = []
         
-        // 1. Chargement des Toilettes via ToiletteModel (Croisement des datasets)
+        // 1. Chargement des Toilettes via ToiletteModel
         do {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
@@ -188,7 +188,7 @@ class MapViewModel: ObservableObject {
             print("Erreur chargement toilettes : \(error)")
         }
         
-        // 2. Chargement des Vélhops via VelhopModel (si ton VelhopModel est prêt)
+        // 2. Chargement des Vélhops via VelhopModel
         do {
             let stations = try await VelhopModel.fetchStations()
             for s in stations {
