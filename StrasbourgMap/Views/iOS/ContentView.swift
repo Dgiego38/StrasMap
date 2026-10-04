@@ -188,16 +188,18 @@ class MapViewModel: ObservableObject {
             print("Erreur chargement toilettes : \(error)")
         }
         
-        // 2. Chargement des Vélhops via VelhopModel
+        // 2. Chargement des Vélhops via VelhopModel (avec déballage sécurisé)
         do {
             let stations = try await VelhopModel.fetchStations()
             for s in stations {
-                loadedPois.append(POIItem(
-                    name: s.nom,
-                    coordinate: s.coordinate,
-                    type: .velhop,
-                    description: "Station Vélhop - Strasbourg"
-                ))
+                if let coord = s.coordinate {
+                    loadedPois.append(POIItem(
+                        name: s.nom ?? "Station Vélhop",
+                        coordinate: coord,
+                        type: .velhop,
+                        description: "Station Vélhop - Strasbourg (Vélos dispos : \(s.nbrVelosDispo ?? 0))"
+                    ))
+                }
             }
         } catch {
             print("Erreur chargement Vélhop : \(error)")
