@@ -37,13 +37,16 @@ struct ContentView: View {
                         Button(action: {
                             selectedPoi = poi
                         }) {
-                            Image(systemName: poi.type.icon)
-                                .font(.system(size: 14, weight: .bold))
-                                .padding(8)
-                                .background(poi.type.color)
-                                .foregroundColor(.white)
-                                .clipShape(Circle())
-                                .shadow(radius: 4)
+                            ZStack {
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 36, height: 36)
+                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                
+                                Image(systemName: poi.type.icon)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(poi.type.color)
+                            }
                         }
                     }
                 }
@@ -63,9 +66,9 @@ struct ContentView: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
-                        TextField("Rechercher un Vélhop, toilette, poubelle...", text: $searchText)
+                        TextField("Rechercher un Vélhop, toilette...", text: $searchText)
                             .textFieldStyle(.plain)
                         
                         if viewModel.isLoading {
@@ -76,14 +79,14 @@ struct ContentView: View {
                         if !searchText.isEmpty {
                             Button(action: { searchText = "" }) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
                     .padding(12)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(12)
-                    .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+                    .cornerRadius(14)
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                     
                     // Sélecteur de mode de carte (Plan / Satellite réaliste)
                     Picker("Style de carte", selection: $mapStyleOption) {
@@ -127,7 +130,7 @@ struct ContentView: View {
                 
                 // Fiche d'information contextuelle si un POI est sélectionné
                 if let poi = selectedPoi {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             Label(poi.name, systemImage: poi.type.icon)
                                 .font(.headline)
@@ -135,7 +138,7 @@ struct ContentView: View {
                             Spacer()
                             Button(action: { selectedPoi = nil }) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.secondary)
                                     .font(.title3)
                             }
                         }
@@ -143,13 +146,14 @@ struct ContentView: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
-                    .padding()
+                    .padding(16)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(16)
+                    .cornerRadius(20)
+                    .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(), value: selectedPoi)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedPoi)
                 }
             }
         }
@@ -173,22 +177,35 @@ class MapViewModel: ObservableObject {
         isLoading = true
         var loadedPois: [POIItem] = []
         
-        // 1. Chargement des Toilettes via ToiletteModel
+        // 1. Chargement des Toilettes via ToiletteModel (avec nom, adresse et accessibilité)
         do {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
+                var descriptionLines: [String] = []
+                
+                if let adresse = t.adresse, !adresse.isEmpty {
+                    descriptionLines.append("📍 \(adresse)")
+                }
+                
+                // Ajout des informations d'accessibilité si présentes dans ton modèle
+                if let pmr = t.accessibilitePMR {
+                    descriptionLines.append(pmr ? "♿ Accessible PMR" : "⚠️ Non accessible PMR")
+                }
+                
+                let finalDescription = descriptionLines.isEmpty ? "Toilette publique à Strasbourg" : descriptionLines.joined(separator: "\n")
+                
                 loadedPois.append(POIItem(
                     name: t.nom,
                     coordinate: t.coordinate,
                     type: .toilet,
-                    description: t.adresse ?? "Toilette publique à Strasbourg"
+                    description: finalDescription
                 ))
             }
         } catch {
             print("Erreur chargement toilettes : \(error)")
         }
         
-        // 2. Chargement des Vélhops via VelhopModel (avec déballage sécurisé)
+        // 2. Chargement des Vélhops via VelhopModel
         do {
             let stations = try await VelhopModel.fetchStations()
             for s in stations {
@@ -197,7 +214,7 @@ class MapViewModel: ObservableObject {
                         name: s.nom ?? "Station Vélhop",
                         coordinate: coord,
                         type: .velhop,
-                        description: "Station Vélhop - Strasbourg (Vélos dispos : \(s.nbrVelosDispo ?? 0))"
+                        description: "🚲 Station Vélhop\nVélos disponibles : \(s.nbrVelosDispo ?? 0)"
                     ))
                 }
             }
