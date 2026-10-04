@@ -1,6 +1,8 @@
 import SwiftUI
 import MapKit
 
+// MARK: - Modèles de Données & ViewModel
+
 struct POIItem: Identifiable, Hashable {
     let id = UUID()
     let name: String
@@ -39,7 +41,101 @@ enum POIType: String, CaseIterable {
     }
 }
 
+@MainActor
+class MapViewModel: ObservableObject {
+    @Published var pois: [POIItem] = []
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String? = nil
+
+    // Structures pour décoder l'Open Data de Strasbourg (API v2.1)
+    private struct OpenDataResponse: Codable {
+        let results: [Record]
+    }
+    
+    private struct Record: Codable {
+        let recordid: String?
+        let nom: String?
+        let adresse: String?
+        let libelle: String?
+        let type: String?
+        let geo_point_2d: GeoPoint?
+    }
+    
+    private struct GeoPoint: Codable {
+        let lat: Double
+        let lon: Double
+    }
+
+    func loadAllData() async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            async let velhopData = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/stations-velhop/records?limit=100", type: .velhop)
+            async let toiletsLieux = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/lieux_toilettes_publiques/records?limit=100", type: .toilet)
+            async let toiletsProprete = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/toilette_publique/records?limit=100", type: .toilet)
+            async let trashData = fetchDataset(urlString: "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/corbeilles_de_proprete/records?limit=100", type: .trash)
+            
+            let results = try await [velhopData, toiletsLieux, toiletsProprete, trashData]
+            let allItems = results.flatMap { $0 }
+            
+            // Dédoublonnage pour éviter les doublons entre les deux datasets de toilettes
+            self.pois = deduplicate(toilets: allItems)
+            self.isLoading = false
+        } catch {
+            self.errorMessage = "Impossible de charger les données Open Data."
+            self.isLoading = false
+        }
+    }
+    
+    private func fetchDataset(urlString: String, type: POIType) async throws -> [POIItem] {
+        guard let url = URL(string: urlString) else { return [] }
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let decoded = try JSONDecoder().decode(OpenDataResponse.self, from: data)
+        
+        var items: [POIItem] = []
+        for record in decoded.results {
+            if let point = record.geo_point_2d {
+                let name = record.nom ?? record.libelle ?? (type == .velhop ? "Station Vélhop" : type == .toilet ? "Toilette publique" : "Corbeille de propreté")
+                let address = record.adresse ?? "Strasbourg"
+                
+                let item = POIItem(
+                    name: name,
+                    coordinate: CLLocationCoordinate2D(latitude: point.lat, longitude: point.lon),
+                    type: type,
+                    description: address
+                )
+                items.append(item)
+            }
+        }
+        return items
+    }
+    
+    private func deduplicate(toilets: [POIItem]) -> [POIItem] {
+        var unique: [POIItem] = []
+        for item in toilets {
+            // Si c'est une toilette, on vérifie qu'il n'y en a pas une autre à < 10m
+            if item.type == .toilet {
+                let isDuplicate = unique.contains { existing in
+                    if existing.type != .toilet { return false }
+                    let loc1 = CLLocation(latitude: existing.coordinate.latitude, longitude: existing.coordinate.longitude)
+                    let loc2 = CLLocation(latitude: item.coordinate.latitude, longitude: item.coordinate.longitude)
+                    return loc1.distance(from: loc2) < 10.0
+                }
+                if !isDuplicate { unique.append(item) }
+            } else {
+                unique.append(item)
+            }
+        }
+        return unique
+    }
+}
+
+// MARK: - Vue Principale
+
 struct ContentView: View {
+    @StateObject private var viewModel = MapViewModel()
+    
     // Position initiale centrée sur Strasbourg (Place Kléber)
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -52,32 +148,15 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var selectedPoi: POIItem? = nil
     
-    // Vraies données de Strasbourg (Open Data / Références réelles)
-    let pois: [POIItem] = [
-        // Toilettes publiques réelles
-        POIItem(name: "Toilettes Publiques - Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7479), type: .toilet, description: "Sanitaires automatiques accessibles 24/7."),
-        POIItem(name: "Toilettes - Gare Centrale", coordinate: CLLocationCoordinate2D(latitude: 48.5850, longitude: 7.7342), type: .toilet, description: "Situées dans le hall principal de la gare."),
-        POIItem(name: "Toilettes - Place du Marché-Gayot", coordinate: CLLocationCoordinate2D(latitude: 48.5822, longitude: 7.7523), type: .toilet, description: "Sanitaires publics au cœur de la Krutenau."),
-        POIItem(name: "Toilettes - Parc de l'Orangerie", coordinate: CLLocationCoordinate2D(latitude: 48.5912, longitude: 7.7715), type: .toilet, description: "Sanitaires publics près du pavillon Joséphine."),
-        POIItem(name: "Toilettes - Petite France (Rue du Bain-aux-Plantes)", coordinate: CLLocationCoordinate2D(latitude: 48.5810, longitude: 7.7412), type: .toilet, description: "Sanitaires publics de quartier."),
-        
-        // Stations Vélhop réelles
-        POIItem(name: "Vélhop - Station Homme de Fer", coordinate: CLLocationCoordinate2D(latitude: 48.5838, longitude: 7.7431), type: .velhop, description: "Station principale de vélos en libre-service."),
-        POIItem(name: "Vélhop - Gare Centrale", coordinate: CLLocationCoordinate2D(latitude: 48.5847, longitude: 7.7350), type: .velhop, description: "Parc de stationnement et location Vélhop."),
-        POIItem(name: "Vélhop - Corbeau", coordinate: CLLocationCoordinate2D(latitude: 48.5795, longitude: 7.7510), type: .velhop, description: "Station de vélos proche des bateliers."),
-        POIItem(name: "Vélhop - Étoile Bourse", coordinate: CLLocationCoordinate2D(latitude: 48.5755, longitude: 7.7530), type: .velhop, description: "Station de vélos connectée au tram."),
-        
-        // Poubelles / Bornes de propreté urbaine
-        POIItem(name: "Corbeille de propreté - Place Broglie", coordinate: CLLocationCoordinate2D(latitude: 48.5858, longitude: 7.7502), type: .trash, description: "Borne de tri et propreté urbaine."),
-        POIItem(name: "Corbeille de propreté - Cathédrale", coordinate: CLLocationCoordinate2D(latitude: 48.5818, longitude: 7.7511), type: .trash, description: "Point de collecte public."),
-        POIItem(name: "Corbeille de propreté - Quai des Bateliers", coordinate: CLLocationCoordinate2D(latitude: 48.5802, longitude: 7.7525), type: .trash, description: "Borne de propreté piétonne.")
-    ]
-    
     var filteredPois: [POIItem] {
         if searchText.isEmpty {
-            return pois
+            return viewModel.pois
         } else {
-            return pois.filter { $0.name.localizedStandardContains(searchText) || $0.type.rawValue.localizedStandardContains(searchText) }
+            return viewModel.pois.filter { 
+                $0.name.localizedStandardContains(searchText) || 
+                $0.type.rawValue.localizedStandardContains(searchText) ||
+                $0.description.localizedStandardContains(searchText)
+            }
         }
     }
     
@@ -85,7 +164,6 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             // Carte principale
             Map(position: $cameraPosition) {
-                // Masquer la boussole par défaut et configurer le style
                 ForEach(filteredPois) { poi in
                     Annotation(poi.name, coordinate: poi.coordinate) {
                         Button(action: {
@@ -104,13 +182,12 @@ struct ContentView: View {
             }
             .mapStyle(mapStyleOption == .standard ? .standard : .imagery)
             .mapControls {
-                // Désactivation explicite de la boussole sur la carte
                 MapCompass().hidden()
                 MapScaleView()
             }
             .ignoresSafeArea()
             
-            // Interface superposée (Remontée vers le haut)
+            // Interface superposée
             VStack(spacing: 12) {
                 // Barre de recherche et de choix de style
                 VStack(spacing: 10) {
@@ -120,6 +197,11 @@ struct ContentView: View {
                         
                         TextField("Rechercher un Vélhop, toilette, poubelle...", text: $searchText)
                             .textFieldStyle(.plain)
+                        
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
                         
                         if !searchText.isEmpty {
                             Button(action: { searchText = "" }) {
@@ -141,9 +223,9 @@ struct ContentView: View {
                     .pickerStyle(.segmented)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 10) // Remonte l'interface globale en haut de l'écran
+                .padding(.top, 10)
                 
-                // Liste des résultats de recherche si l'utilisateur tape quelque chose
+                // Liste horizontale des résultats si recherche active
                 if !searchText.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -200,6 +282,10 @@ struct ContentView: View {
                     .animation(.spring(), value: selectedPoi)
                 }
             }
+        }
+        .task {
+            // Charger les vraies données dès l'affichage de la vue
+            await viewModel.loadAllData()
         }
     }
 }
