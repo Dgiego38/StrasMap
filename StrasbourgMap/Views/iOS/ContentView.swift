@@ -43,9 +43,8 @@ struct ContentView: View {
                                     .frame(width: 36, height: 36)
                                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                                 
-                                Image(systemName: poi.type.icon)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(poi.type.color)
+                                Text(poi.type == .toilet ? "🚻" : "🚲")
+                                    .font(.system(size: 16))
                             }
                         }
                     }
@@ -108,8 +107,7 @@ struct ContentView: View {
                                     selectedPoi = poi
                                 }) {
                                     HStack(spacing: 6) {
-                                        Image(systemName: poi.type.icon)
-                                            .foregroundColor(poi.type.color)
+                                        Text(poi.type == .toilet ? "🚻" : "🚲")
                                         Text(poi.name)
                                             .font(.subheadline)
                                             .lineLimit(1)
@@ -132,9 +130,8 @@ struct ContentView: View {
                 if let poi = selectedPoi {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Label(poi.name, systemImage: poi.type.icon)
+                            Text(poi.name)
                                 .font(.headline)
-                                .foregroundColor(poi.type.color)
                             Spacer()
                             Button(action: { selectedPoi = nil }) {
                                 Image(systemName: "xmark.circle.fill")
@@ -167,7 +164,7 @@ enum MapStyleOption {
     case standard, satellite
 }
 
-// MARK: - ViewModel connecté à tes fichiers de Modèles
+// MARK: - ViewModel
 @MainActor
 class MapViewModel: ObservableObject {
     @Published var pois: [POIItem] = []
@@ -177,28 +174,18 @@ class MapViewModel: ObservableObject {
         isLoading = true
         var loadedPois: [POIItem] = []
         
-        // 1. Chargement des Toilettes via ToiletteModel (avec nom, adresse et accessibilité)
+        // 1. Chargement des Toilettes via ToiletteModel
         do {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
-                var descriptionLines: [String] = []
-                
-                if let adresse = t.adresse, !adresse.isEmpty {
-                    descriptionLines.append("📍 \(adresse)")
-                }
-                
-                // Ajout des informations d'accessibilité si présentes dans ton modèle
-                if let pmr = t.accessibilitePMR {
-                    descriptionLines.append(pmr ? "♿ Accessible PMR" : "⚠️ Non accessible PMR")
-                }
-                
-                let finalDescription = descriptionLines.isEmpty ? "Toilette publique à Strasbourg" : descriptionLines.joined(separator: "\n")
+                let adresseText = t.adresse ?? "Adresse non spécifiée"
+                let description = "📍 \(adresseText)\nSource : \(t.source == "lieux" ? "Lieux publics" : "Propreté urbaine")"
                 
                 loadedPois.append(POIItem(
                     name: t.nom,
                     coordinate: t.coordinate,
                     type: .toilet,
-                    description: finalDescription
+                    description: description
                 ))
             }
         } catch {
