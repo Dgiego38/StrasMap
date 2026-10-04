@@ -8,7 +8,7 @@ struct ToiletteModel: Identifiable, Codable {
     let coordinate: CLLocationCoordinate2D
     let source: String
 
-    // Struct pour décoder l'API OpenData Strasbourg v2.1 (format standard records)
+    // Structs pour décoder l'API OpenData Strasbourg v2.1
     struct OpenDataResponse: Codable {
         let results: [Record]
     }
@@ -25,6 +25,40 @@ struct ToiletteModel: Identifiable, Codable {
         let lon: Double
     }
     
+    // Implémentation manuelle de Codable pour gérer CLLocationCoordinate2D
+    enum CodingKeys: String, CodingKey {
+        case id, nom, adresse, coordinate, source
+    }
+    
+    init(id: String, nom: String, adresse: String?, coordinate: CLLocationCoordinate2D, source: String) {
+        self.id = id
+        self.nom = nom
+        self.adresse = adresse
+        self.coordinate = coordinate
+        self.source = source
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        nom = try container.decode(String.self, forKey: .nom)
+        adresse = try container.decodeIfPresent(String.self, forKey: .adresse)
+        source = try container.decode(String.self, forKey: .source)
+        
+        let lat = try container.decode(Double.self, forKey: .coordinate) // Juste une astuce de décodage si besoin, ou géré via GeoPoint
+        let lon = try container.decode(Double.self, forKey: .coordinate)
+        coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(nom, forKey: .nom)
+        try container.encodeIfPresent(adresse, forKey: .adresse)
+        try container.encode(source, forKey: .source)
+        // Encode la latitude et longitude si nécessaire
+    }
+    
     // Fonction statique pour récupérer et croiser les deux datasets
     static func fetchAndMergeToilets() async throws -> [ToiletteModel] {
         let urlLieuxStr = "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/lieux_toilettes_publiques/records?limit=100"
@@ -35,14 +69,12 @@ struct ToiletteModel: Identifiable, Codable {
             return []
         }
         
-        // Requêtes parallèles
         async let (dataLieux, _) = URLSession.shared.data(from: urlLieux)
         async let (dataProprete, _) = URLSession.shared.data(from: urlProprete)
         
         var combinedToilets: [ToiletteModel] = []
         let decoder = JSONDecoder()
         
-        // 1. Parsing du premier dataset (lieux_toilettes_publiques)
         if let decodedLieux = try? decoder.decode(OpenDataResponse.self, from: try await dataLieux) {
             for record in decodedLieux.results {
                 if let point = record.geo_point_2d {
@@ -58,7 +90,6 @@ struct ToiletteModel: Identifiable, Codable {
             }
         }
         
-        // 2. Parsing du second dataset (toilette_publique)
         if let decodedProprete = try? decoder.decode(OpenDataResponse.self, from: try await dataProprete) {
             for record in decodedProprete.results {
                 if let point = record.geo_point_2d {
@@ -74,7 +105,6 @@ struct ToiletteModel: Identifiable, Codable {
             }
         }
         
-        // 3. Dédoublonnage géographique (si un point est à moins de 15 mètres d'un autre)
         return deduplicate(toilets: combinedToilets)
     }
     
