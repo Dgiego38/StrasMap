@@ -269,17 +269,18 @@ struct ContentView: View {
     
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
-        // Utilisation de .wrappedValue pour accéder à la propriété du StateObject depuis une computed property
-        let userLoc = locationManager.userLocation
         
         return items.sorted { item1, item2 in
-            if sortOption == .distance, let userLoc = userLoc {
+            if sortOption == .distance {
                 let loc1 = CLLocation(latitude: item1.coordinate.latitude, longitude: item1.coordinate.longitude)
                 let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
-                return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
-            } else {
-                return item1.name < item2.name
+                
+                // Remplace ".location" par le nom exact de ta variable dans LocationManager si besoin (ex: .lastLocation, .userLocation, etc.)
+                if let userLoc = locationManager.location {
+                    return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
+                }
             }
+            return item1.name < item2.name
         }
     }
 }

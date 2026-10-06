@@ -42,7 +42,20 @@ jobs:
             exit 1
           fi
 
-          # 4. Nettoyer et zipper l'IPA
+          # 4. Compiler et intégrer le catalogue d'actifs (Assets.xcassets -> Assets.car + icônes)
+          if [ -d "StrasbourgMap/Assets.xcassets" ]; then
+            echo "Compilation du catalogue d'actifs..."
+            xcrun actool StrasbourgMap/Assets.xcassets \
+              --compile Payload/StrasbourgMap.app \
+              --platform iphoneos \
+              --minimum-deployment-target 17.0 \
+              --app-icon AppIcon \
+              --output-format human-readable-text
+          else
+            echo "Attention: Assets.xcassets introuvable, pas d'icône intégrée."
+          fi
+
+          # 5. Nettoyer et zipper l'IPA
           find Payload -name ".DS_Store" -delete
           zip -r StrasbourgMap.ipa Payload
 
