@@ -289,17 +289,16 @@ struct ContentView: View {
     
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
-        // Récupération sécurisée de la position depuis le LocationManager
-        let userLocation = locationManager.location
         
         return items.sorted(by: { item1, item2 in
             if sortOption == .distance {
                 let loc1 = CLLocation(latitude: item1.coordinate.latitude, longitude: item1.coordinate.longitude)
                 let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
                 
-                if let userLoc = userLocation {
-                    return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
-                }
+                // On utilise la position réelle de l'utilisateur si disponible, sinon le centre de la carte par défaut
+                let refLocation = locationManager.currentLocation ?? CLLocation(latitude: 48.5839, longitude: 7.7455)
+                
+                return loc1.distance(from: refLocation) < loc2.distance(from: refLocation)
             }
             return item1.name < item2.name
         })
