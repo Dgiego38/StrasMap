@@ -6,26 +6,26 @@ import CoreLocation
 
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
-   
+    @StateObject private var locationManager = LocationManager()
+    
     @State private var selectedTab: String = "map"
     @State private var selectedCategoryFilter: POIType? = nil
     @State private var isSheetExpanded: Bool = false
     @State private var sortOption: SortOption = .distance
-   
+    
     @AppStorage("themeMode") private var themeMode: ThemeMode = .system
-    @StateObject private var locationManager = LocationManager()
-   
+    
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455),
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         )
     )
-   
+    
     @State private var mapStyleOption: MapStyleOption = .standard
     @State private var searchText: String = ""
     @State private var selectedPoi: POIItem? = nil
-   
+    
     var filteredPois: [POIItem] {
         let baseList = viewModel.pois
         let categoryFiltered: [POIItem]
@@ -44,7 +44,7 @@ struct ContentView: View {
             }
         }
     }
-   
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             ZStack(alignment: .top) {
@@ -63,7 +63,7 @@ struct ContentView: View {
                                             .fill(.ultraThinMaterial)
                                             .frame(width: 36, height: 36)
                                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                     
+                                        
                                         Text(poi.type == .toilet ? "🚻" : (poi.type == .velhop ? "🚲" : "🚊"))
                                             .font(.system(size: 16))
                                     }
@@ -80,48 +80,13 @@ struct ContentView: View {
                     .ignoresSafeArea()
                    
                     VStack(spacing: 10) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
-                            
-                            TextField("Rechercher...", text: $searchText)
-                                .textFieldStyle(.plain)
-                            
-                            if viewModel.isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            }
-                            
-                            if !searchText.isEmpty {
-                                Button(action: { searchText = "" }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        .padding(12)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(14)
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                       
+                        SearchView(searchText: $searchText, isLoading: viewModel.isLoading)
+                        
                         if let filter = selectedCategoryFilter {
-                            HStack {
-                                Text(filter == .toilet ? "🚻 Filtre : Toilettes" : (filter == .velhop ? "🚲 Filtre : Vélhop" : "🚊 Filtre : Tramway CTS"))
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                Spacer()
-                                Button(action: {
-                                    selectedCategoryFilter = nil
-                                    isSheetExpanded = false
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                }
+                            CategoryFilterBanner(filter: filter) {
+                                selectedCategoryFilter = nil
+                                isSheetExpanded = false
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(10)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -197,28 +162,9 @@ struct ContentView: View {
                     }
                    
                     if let poi = selectedPoi {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text(poi.name)
-                                    .font(.headline)
-                                Spacer()
-                                Button(action: { selectedPoi = nil }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                        .font(.title3)
-                                }
-                            }
-                            Text(poi.description)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                        POIDetailsCard(poi: poi) {
+                            selectedPoi = nil
                         }
-                        .padding(16)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(20)
-                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 100)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                    
                 // 2. ONGLET CATEGORIES
@@ -293,6 +239,91 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Composants isolés
+
+struct SearchView: View {
+    @Binding var searchText: String
+    let isLoading: Bool
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            
+            TextField("Rechercher...", text: $searchText)
+                .textFieldStyle(.plain)
+            
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(0.8)
+            }
+            
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .cornerRadius(14)
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+struct CategoryFilterBanner: View {
+    let filter: POIType
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(filter == .toilet ? "🚻 Filtre : Toilettes" : (filter == .velhop ? "🚲 Filtre : Vélhop" : "🚊 Filtre : Tramway CTS"))
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Spacer()
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+        .cornerRadius(10)
+    }
+}
+
+struct POIDetailsCard: View {
+    let poi: POIItem
+    let onClose: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(poi.name)
+                    .font(.headline)
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .font(.title3)
+                }
+            }
+            Text(poi.description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 100)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
 // MARK: - Énumérations utilitaires d'interface
 
 enum ThemeMode: String, CaseIterable, Identifiable {
@@ -319,7 +350,7 @@ enum SortOption {
     case distance, count
 }
 
-// MARK: - Sous-vues
+// MARK: - Sous-vues de navigation
 
 struct TabButton: View {
     let icon: String
