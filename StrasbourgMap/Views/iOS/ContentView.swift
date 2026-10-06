@@ -2,118 +2,6 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-// MARK: - Modèles et Énumérations
-
-enum POIType: String, Codable, CaseIterable {
-    case toilet
-    case velhop
-    case tram
-}
-
-struct POIItem: Identifiable, Equatable {
-    let id = UUID()
-    let name: String
-    let coordinate: CLLocationCoordinate2D
-    let type: POIType
-    let description: String
-    
-    static func == (lhs: POIItem, rhs: POIItem) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-enum ThemeMode: String, CaseIterable, Identifiable {
-    case system = "Système"
-    case light = "Clair"
-    case dark = "Sombre"
-   
-    var id: String { self.rawValue }
-   
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
-        }
-    }
-}
-
-enum MapStyleOption {
-    case standard, satellite
-}
-
-enum SortOption {
-    case distance, count
-}
-
-// MARK: - Gestionnaire de localisation simple
-
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
-    @Published var currentLocation: CLLocation?
-
-    override init() {
-        super.init()
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        self.currentLocation = location
-    }
-}
-
-// MARK: - Modèles de données fictifs/interface pour les services
-
-struct ToiletteModel {
-    let name: String
-    let coordinate: CLLocationCoordinate2D
-    let address: String?
-    
-    static func fetchAndMergeToilets() async throws -> [ToiletteModel] {
-        return [
-            ToiletteModel(name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455), address: "Place Kléber")
-        ]
-    }
-}
-
-struct VelhopModel {
-    let nom: String?
-    let coordinate: CLLocationCoordinate2D?
-    let nbrVelosDispo: Int?
-    
-    static func fetchStations() async throws -> [VelhopModel] {
-        return [
-            VelhopModel(nom: "Station Homme de Fer", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7431), nbrVelosDispo: 12)
-        ]
-    }
-}
-
-struct TransportctsModel {
-    let nomArret: String?
-    let ligneS: String?
-    let geoPoint2d: GeoPoint?
-    let geometry: GeoGeometry?
-    
-    struct GeoPoint {
-        let lat: Double
-        let lon: Double
-    }
-    
-    struct GeoGeometry {
-        let coordinates: [Double]
-    }
-    
-    static func fetchTramStations() async throws -> [TransportctsModel] {
-        return [
-            TransportctsModel(nomArret: "Homme de Fer", ligneS: "A, B, C, D", geoPoint2d: GeoPoint(lat: 48.5834, lon: 7.7431), geometry: nil)
-        ]
-    }
-}
-
 // MARK: - Vue Principale
 
 struct ContentView: View {
@@ -162,10 +50,10 @@ struct ContentView: View {
             ZStack(alignment: .top) {
                 // 1. ONGLET CARTE
                 if selectedTab == "map" {
-                    Map(position: $cameraPosition) {
+                    Map(position: $cameraPosition, selection: $selectedPoi) {
                         UserAnnotation()
                         ForEach(filteredPois) { poi in
-                            Annotation("", coordinate: poi.coordinate) {
+                            Annotation("", coordinate: poi.coordinate, tag: poi) {
                                 Button(action: {
                                     selectedPoi = poi
                                     isSheetExpanded = false
@@ -405,6 +293,32 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Énumérations utilitaires d'interface
+
+enum ThemeMode: String, CaseIterable, Identifiable {
+    case system = "Système"
+    case light = "Clair"
+    case dark = "Sombre"
+   
+    var id: String { self.rawValue }
+   
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+enum MapStyleOption {
+    case standard, satellite
+}
+
+enum SortOption {
+    case distance, count
+}
+
 // MARK: - Sous-vues
 
 struct TabButton: View {
@@ -563,80 +477,5 @@ struct SettingsView: View {
             .navigationTitle("Paramètres")
             .padding(.bottom, 80)
         }
-    }
-}
-
-// MARK: - ViewModel
-
-@MainActor
-class MapViewModel: ObservableObject {
-    @Published var pois: [POIItem] = []
-    @Published var isLoading: Bool = false
-
-    func loadAllData() async {
-        isLoading = true
-        var loadedPois: [POIItem] = []
-       
-        do {
-            let toilets = try await ToiletteModel.fetchAndMergeToilets()
-            for t in toilets {
-                let adresseText = t.address ?? "Adresse non spécifiée"
-                let description = "📍 \(adresseText)"
-               
-                loadedPois.append(POIItem(
-                    name: t.name,
-                    coordinate: t.coordinate,
-                    type: .toilet,
-                    description: description
-                ))
-            }
-        } catch {
-            print("Erreur chargement toilettes : \(error)")
-        }
-       
-        do {
-            let stations = try await VelhopModel.fetchStations()
-            for s in stations {
-                if let coord = s.coordinate {
-                    loadedPois.append(POIItem(
-                        name: s.nom ?? "Station Vélhop",
-                        coordinate: coord,
-                        type: .velhop,
-                        description: "🚲 Station Vélhop\nVélos disponibles : \(s.nbrVelosDispo ?? 0)"
-                    ))
-                }
-            }
-        } catch {
-            print("Erreur chargement Vélhop : \(error)")
-        }
-
-        do {
-            let tramStations = try await TransportctsModel.fetchTramStations()
-            for record in tramStations {
-                let name = record.nomArret ?? "Station de Tram"
-                let lines = record.ligneS ?? "Lignes multiples"
-                
-                var coordinate: CLLocationCoordinate2D?
-                if let pt = record.geoPoint2d {
-                    coordinate = CLLocationCoordinate2D(latitude: pt.lat, longitude: pt.lon)
-                } else if let coords = record.geometry?.coordinates, coords.count >= 2 {
-                    coordinate = CLLocationCoordinate2D(latitude: coords[1], longitude: coords[0])
-                }
-                
-                if let coord = coordinate {
-                    loadedPois.append(POIItem(
-                        name: name,
-                        coordinate: coord,
-                        type: .tram,
-                        description: "🚊 Tram - Lignes : \(lines)"
-                    ))
-                }
-            }
-        } catch {
-            print("Erreur chargement Trams CTS : \(error)")
-        }
-       
-        self.pois = loadedPois
-        self.isLoading = false
     }
 }
