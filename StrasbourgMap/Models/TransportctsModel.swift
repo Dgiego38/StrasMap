@@ -30,7 +30,7 @@ struct GeoGeometry: Codable {
 }
 
 // MARK: - Helper de chargement CTS
-class CTSModel {
+class TransportctsModel {
     static func fetchTramStations() async throws -> [TramStationRecord] {
         // Endpoint officiel v2.1 Open Data Strasbourg pour les stations de tram
         let urlString = "https://data.strasbourg.eu/api/explore/v2.1/catalog/datasets/stations_tram/records?limit=100"
@@ -45,14 +45,7 @@ class CTSModel {
             throw URLError(.badServerResponse)
         }
         
-        let decodedResponse = try JSONDecoder().decode(TramStationResponse.fromCustom(), from: data) // ou décodage standard
+        let decodedResponse = try JSONDecoder().decode(TramStationResponse.self, from: data)
         return decodedResponse.results
-    }
-}
-
-// Extension pour décoder robustement selon la structure Opendatasoft
-extension TramStationResponse {
-    static func fromCustom() -> JSONDecoder {
-        return JSONDecoder()
     }
 }

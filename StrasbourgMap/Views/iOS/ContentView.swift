@@ -2,6 +2,8 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+// MARK: - Modèles et Énumérations
+
 enum ThemeMode: String, CaseIterable, Identifiable {
     case system = "Système"
     case light = "Clair"
@@ -18,6 +20,16 @@ enum ThemeMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum MapStyleOption {
+    case standard, satellite
+}
+
+enum SortOption {
+    case distance, count
+}
+
+// MARK: - Vue Principale
+
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
    
@@ -33,7 +45,7 @@ struct ContentView: View {
     // Option de tri
     @State private var sortOption: SortOption = .distance
    
-    // Mode d'apparence sauvegardé dans les AppStorage
+    // Mode d'apparence sauvegardé dans AppStorage
     @AppStorage("themeMode") private var themeMode: ThemeMode = .system
    
     // Gestionnaire de localisation
@@ -53,10 +65,11 @@ struct ContentView: View {
    
     var filteredPois: [POIItem] {
         let baseList = viewModel.pois
-        let categoryFiltered = if let filter = selectedCategoryFilter {
-            baseList.filter { $0.type == filter }
+        let categoryFiltered: [POIItem]
+        if let filter = selectedCategoryFilter {
+            categoryFiltered = baseList.filter { $0.type == filter }
         } else {
-            baseList
+            categoryFiltered = baseList
         }
        
         if searchText.isEmpty {
@@ -247,8 +260,12 @@ struct ContentView: View {
                    
                 // 2. ONGLET CATEGORIES
                 } else if selectedTab == "categories" {
-                    CategoriesView(selectedCategoryFilter: $selectedCategoryFilter, selectedTab: $selectedTab, isSheetExpanded: $isSheetExpanded)
-                        .transition(.opacity)
+                    CategoriesView(
+                        selectedCategoryFilter: $selectedCategoryFilter,
+                        selectedTab: $selectedTab,
+                        isSheetExpanded: $isSheetExpanded
+                    )
+                    .transition(.opacity)
                
                 // 3. ONGLET PARAMETRES
                 } else if selectedTab == "settings" {
@@ -313,7 +330,8 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Sous-vues et ViewModel
+// MARK: - Sous-vues
+
 struct TabButton: View {
     let icon: String
     let title: String
@@ -474,6 +492,7 @@ struct SettingsView: View {
 }
 
 // MARK: - ViewModel
+
 @MainActor
 class MapViewModel: ObservableObject {
     @Published var pois: [POIItem] = []
@@ -545,12 +564,4 @@ class MapViewModel: ObservableObject {
         self.pois = loadedPois
         self.isLoading = false
     }
-}
-
-enum MapStyleOption {
-    case standard, satellite
-}
-
-enum SortOption {
-    case distance, count
 }
