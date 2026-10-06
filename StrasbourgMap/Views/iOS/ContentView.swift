@@ -6,9 +6,9 @@ enum ThemeMode: String, CaseIterable, Identifiable {
     case system = "Système"
     case light = "Clair"
     case dark = "Sombre"
-    
+   
     var id: String { self.rawValue }
-    
+   
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
@@ -20,25 +20,25 @@ enum ThemeMode: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
-    
+   
     // Onglet actif ("map", "categories", "settings")
     @State private var selectedTab: String = "map"
-    
+   
     // Filtre de catégorie actif
     @State private var selectedCategoryFilter: POIType? = nil
-    
+   
     // État d'expansion de la feuille du haut
     @State private var isSheetExpanded: Bool = false
-    
+   
     // Option de tri
     @State private var sortOption: SortOption = .distance
-    
-    // Mode d'apparence (Clair / Sombre / Système) sauvegardé dans les AppStorage
+   
+    // Mode d'apparence sauvegardé dans les AppStorage
     @AppStorage("themeMode") private var themeMode: ThemeMode = .system
-    
+   
     // Gestionnaire de localisation
     @StateObject private var locationManager = LocationManager()
-    
+   
     // Position initiale centrée sur Strasbourg (Place Kléber)
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -46,11 +46,11 @@ struct ContentView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
         )
     )
-    
+   
     @State private var mapStyleOption: MapStyleOption = .standard
     @State private var searchText: String = ""
     @State private var selectedPoi: POIItem? = nil
-    
+   
     var filteredPois: [POIItem] {
         let baseList = viewModel.pois
         let categoryFiltered = if let filter = selectedCategoryFilter {
@@ -58,17 +58,17 @@ struct ContentView: View {
         } else {
             baseList
         }
-        
+       
         if searchText.isEmpty {
             return categoryFiltered
         } else {
-            return categoryFiltered.filter { 
-                $0.name.localizedStandardContains(searchText) || 
+            return categoryFiltered.filter {
+                $0.name.localizedStandardContains(searchText) ||
                 $0.description.localizedStandardContains(searchText)
             }
         }
     }
-    
+   
     var body: some View {
         ZStack(alignment: .bottom) {
             ZStack(alignment: .top) {
@@ -80,14 +80,15 @@ struct ContentView: View {
                             Annotation("", coordinate: poi.coordinate) {
                                 Button(action: {
                                     selectedPoi = poi
+                                    isSheetExpanded = false
                                 }) {
                                     ZStack {
                                         Circle()
                                             .fill(.ultraThinMaterial)
                                             .frame(width: 36, height: 36)
                                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                        
-                                        Text(poi.type == .toilet ? "🚻" : "🚲")
+                                     
+                                        Text(poi.type == .toilet ? "🚻" : (poi.type == .velhop ? "🚲" : "🚊"))
                                             .font(.system(size: 16))
                                     }
                                 }
@@ -101,20 +102,20 @@ struct ContentView: View {
                         MapUserLocationButton()
                     }
                     .ignoresSafeArea()
-                    
+                   
                     VStack(spacing: 10) {
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
                                 .foregroundColor(.secondary)
-                            
+                           
                             TextField("Rechercher...", text: $searchText)
                                 .textFieldStyle(.plain)
-                            
+                           
                             if viewModel.isLoading {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                            
+                           
                             if !searchText.isEmpty {
                                 Button(action: { searchText = "" }) {
                                     Image(systemName: "xmark.circle.fill")
@@ -126,15 +127,16 @@ struct ContentView: View {
                         .background(.ultraThinMaterial)
                         .cornerRadius(14)
                         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                        
+                       
                         if let filter = selectedCategoryFilter {
                             HStack {
-                                Text(filter == .toilet ? "🚻 Filtre : Toilettes" : "🚲 Filtre : Vélhop")
+                                Text(filter == .toilet ? "🚻 Filtre : Toilettes" : (filter == .velhop ? "🚲 Filtre : Vélhop" : "🚊 Filtre : Tramway CTS"))
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 Spacer()
                                 Button(action: {
                                     selectedCategoryFilter = nil
+                                    isSheetExpanded = false
                                 }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(.secondary)
@@ -148,7 +150,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 50)
-                    
+                   
                     if selectedCategoryFilter != nil {
                         VStack(spacing: 0) {
                             Button(action: {
@@ -162,22 +164,22 @@ struct ContentView: View {
                                     .padding(.top, 8)
                                     .padding(.bottom, 6)
                             }
-                            
+                           
                             HStack {
-                                Text(selectedCategoryFilter == .toilet ? "Toilettes publiques" : "Stations Vélhop")
+                                Text(selectedCategoryFilter == .toilet ? "Toilettes publiques" : (selectedCategoryFilter == .velhop ? "Stations Vélhop" : "Stations de Tram"))
                                     .font(.headline)
                                 Spacer()
-                                
+                               
                                 Picker("Tri", selection: $sortOption) {
-                                    Text("Plus proche").tag(SortOption.distance)
-                                    Text("Plus de vélos").tag(SortOption.count)
+                                    Text("Proche").tag(SortOption.distance)
+                                    Text("Dispo").tag(SortOption.count)
                                 }
                                 .pickerStyle(.segmented)
-                                .frame(width: 180)
+                                .frame(width: 150)
                             }
                             .padding(.horizontal, 16)
                             .padding(.bottom, 8)
-                            
+                           
                             if isSheetExpanded {
                                 Divider()
                                 List(sortedFilteredPois) { poi in
@@ -217,7 +219,7 @@ struct ContentView: View {
                         .padding(.top, 120)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    
+                   
                     if let poi = selectedPoi {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
@@ -242,12 +244,12 @@ struct ContentView: View {
                         .padding(.bottom, 100)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    
+                   
                 // 2. ONGLET CATEGORIES
                 } else if selectedTab == "categories" {
                     CategoriesView(selectedCategoryFilter: $selectedCategoryFilter, selectedTab: $selectedTab, isSheetExpanded: $isSheetExpanded)
                         .transition(.opacity)
-                
+               
                 // 3. ONGLET PARAMETRES
                 } else if selectedTab == "settings" {
                     SettingsView(mapStyleOption: $mapStyleOption, themeMode: $themeMode)
@@ -255,17 +257,17 @@ struct ContentView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: selectedTab)
-            
-            // --- BARRE D'ONGLETS FLOTTANTE "LIQUID GLASS" ---
+           
+            // --- BARRE D'ONGLETS FLOTTANTE ---
             HStack(spacing: 24) {
                 TabButton(icon: "map.fill", title: "Carte", isSelected: selectedTab == "map") {
                     selectedTab = "map"
                 }
-                
+               
                 TabButton(icon: "square.grid.2x2.fill", title: "Catégories", isSelected: selectedTab == "categories") {
                     selectedTab = "categories"
                 }
-                
+               
                 TabButton(icon: "gearshape.fill", title: "Paramètres", isSelected: selectedTab == "settings") {
                     selectedTab = "settings"
                 }
@@ -286,22 +288,28 @@ struct ContentView: View {
             await viewModel.loadAllData()
         }
     }
-    
+   
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
-        
+       
         return items.sorted(by: { item1, item2 in
             if sortOption == .distance {
                 let loc1 = CLLocation(latitude: item1.coordinate.latitude, longitude: item1.coordinate.longitude)
                 let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
-                
-                // On utilise la position réelle de l'utilisateur si disponible, sinon le centre de la carte par défaut
                 let refLocation = locationManager.currentLocation ?? CLLocation(latitude: 48.5839, longitude: 7.7455)
-                
                 return loc1.distance(from: refLocation) < loc2.distance(from: refLocation)
+            } else {
+                let count1 = extractBikeCount(from: item1.description)
+                let count2 = extractBikeCount(from: item2.description)
+                return count1 > count2
             }
-            return item1.name < item2.name
         })
+    }
+   
+    private func extractBikeCount(from text: String) -> Int {
+        let components = text.components(separatedBy: CharacterSet.decimalDigits.inverted)
+        let numbers = components.compactMap { Int($0) }
+        return numbers.last ?? 0
     }
 }
 
@@ -311,7 +319,7 @@ struct TabButton: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
-    
+   
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -331,7 +339,7 @@ struct CategoriesView: View {
     @Binding var selectedCategoryFilter: POIType?
     @Binding var selectedTab: String
     @Binding var isSheetExpanded: Bool
-    
+   
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -346,7 +354,7 @@ struct CategoriesView: View {
                         selectedTab = "map"
                         isSheetExpanded = true
                     }
-                    
+                   
                     CategoryCard(
                         title: "Stations Vélhop",
                         subtitle: "Vélos partagés de l'Eurométropole",
@@ -357,7 +365,18 @@ struct CategoriesView: View {
                         selectedTab = "map"
                         isSheetExpanded = true
                     }
-                    
+
+                    CategoryCard(
+                        title: "Tramway CTS",
+                        subtitle: "Réseau de tramways de Strasbourg",
+                        icon: "🚊",
+                        color: LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ) {
+                        selectedCategoryFilter = .tram
+                        selectedTab = "map"
+                        isSheetExpanded = true
+                    }
+                   
                     CategoryCard(
                         title: "Prochainement...",
                         subtitle: "Nouvelles catégories à venir",
@@ -380,7 +399,7 @@ struct CategoryCard: View {
     let icon: String
     let color: LinearGradient
     let action: () -> Void
-    
+   
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
@@ -389,7 +408,7 @@ struct CategoryCard: View {
                     .padding(12)
                     .background(.ultraThinMaterial)
                     .cornerRadius(16)
-                
+               
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.headline)
@@ -413,7 +432,7 @@ struct CategoryCard: View {
 struct SettingsView: View {
     @Binding var mapStyleOption: MapStyleOption
     @Binding var themeMode: ThemeMode
-    
+   
     var body: some View {
         NavigationStack {
             Form {
@@ -425,14 +444,14 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-                
+               
                 Section(header: Text("Apparence de la carte")) {
                     Picker("Style de carte", selection: $mapStyleOption) {
                         Text("Plan standard").tag(MapStyleOption.standard)
                         Text("Satellite 3D").tag(MapStyleOption.satellite)
                     }
                 }
-                
+               
                 Section(header: Text("À propos")) {
                     HStack {
                         Text("Application")
@@ -463,13 +482,13 @@ class MapViewModel: ObservableObject {
     func loadAllData() async {
         isLoading = true
         var loadedPois: [POIItem] = []
-        
+       
         do {
             let toilets = try await ToiletteModel.fetchAndMergeToilets()
             for t in toilets {
                 let adresseText = t.address ?? "Adresse non spécifiée"
                 let description = "📍 \(adresseText)"
-                
+               
                 loadedPois.append(POIItem(
                     name: t.name,
                     coordinate: t.coordinate,
@@ -480,7 +499,7 @@ class MapViewModel: ObservableObject {
         } catch {
             print("Erreur chargement toilettes : \(error)")
         }
-        
+       
         do {
             let stations = try await VelhopModel.fetchStations()
             for s in stations {
@@ -496,7 +515,33 @@ class MapViewModel: ObservableObject {
         } catch {
             print("Erreur chargement Vélhop : \(error)")
         }
-        
+
+        do {
+            let tramStations = try await TransportctsModel.fetchTramStations()
+            for record in tramStations {
+                let name = record.nomArret ?? "Station de Tram"
+                let lines = record.ligneS ?? "Lignes multiples"
+                
+                var coordinate: CLLocationCoordinate2D?
+                if let pt = record.geoPoint2d {
+                    coordinate = CLLocationCoordinate2D(latitude: pt.lat, longitude: pt.lon)
+                } else if let coords = record.geometry?.coordinates, coords.count >= 2 {
+                    coordinate = CLLocationCoordinate2D(latitude: coords[1], longitude: coords[0])
+                }
+                
+                if let coord = coordinate {
+                    loadedPois.append(POIItem(
+                        name: name,
+                        coordinate: coord,
+                        type: .tram,
+                        description: "🚊 Tram - Lignes : \(lines)"
+                    ))
+                }
+            }
+        } catch {
+            print("Erreur chargement Trams CTS : \(error)")
+        }
+       
         self.pois = loadedPois
         self.isLoading = false
     }
