@@ -17,7 +17,7 @@ struct ContentView: View {
     // Option de tri
     @State private var sortOption: SortOption = .distance
     
-    // CORRECTION : Ajout du mot-clé "var" manquant
+    // Gestionnaire de localisation
     @StateObject private var locationManager = LocationManager()
     
     // Position initiale centrée sur Strasbourg (Place Kléber)
@@ -269,6 +269,7 @@ struct ContentView: View {
     
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
+        // Utilisation directe de la propriété standard compatible avec le LocationManager externe
         let userLoc = locationManager.userLocation
         
         return items.sorted { item1, item2 in
