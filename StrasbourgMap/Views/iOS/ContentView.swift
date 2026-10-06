@@ -8,17 +8,17 @@ struct ContentView: View {
     // Onglet actif ("map", "categories", "settings")
     @State private var selectedTab: String = "map"
     
-    // Filtre de catégorie actif (nil = tout afficher, sinon restreint à un type)
+    // Filtre de catégorie actif
     @State private var selectedCategoryFilter: POIType? = nil
     
-    // État d'expansion de la feuille du haut (pour la liste des stations/catégories)
+    // État d'expansion de la feuille du haut
     @State private var isSheetExpanded: Bool = false
     
-    // Option de tri pour les catégories ("distance" ou "count")
+    // Option de tri
     @State private var sortOption: SortOption = .distance
     
-    // Gestionnaire de localisation pour trier par proximité
-    @StateObject private locationManager = LocationManager()
+    // CORRECTION : Ajout du mot-clé "var" manquant
+    @StateObject private var locationManager = LocationManager()
     
     // Position initiale centrée sur Strasbourg (Place Kléber)
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -32,7 +32,6 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var selectedPoi: POIItem? = nil
     
-    // Filtrage dynamique des POIs (selon recherche texte et filtre catégorie)
     var filteredPois: [POIItem] {
         let baseList = viewModel.pois
         let categoryFiltered = if let filter = selectedCategoryFilter {
@@ -53,9 +52,8 @@ struct ContentView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Contenu principal selon l'onglet sélectionné
             ZStack(alignment: .top) {
-                // 1. ONGLET CARTE (Par défaut)
+                // 1. ONGLET CARTE
                 if selectedTab == "map" {
                     Map(position: $cameraPosition) {
                         UserAnnotation()
@@ -85,7 +83,6 @@ struct ContentView: View {
                     }
                     .ignoresSafeArea()
                     
-                    // Superposition : Barre de recherche & Filtre actif
                     VStack(spacing: 10) {
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
@@ -111,7 +108,6 @@ struct ContentView: View {
                         .cornerRadius(14)
                         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
                         
-                        // Badge si un filtre de catégorie est actif depuis l'onglet Catégories
                         if let filter = selectedCategoryFilter {
                             HStack {
                                 Text(filter == .toilet ? "🚻 Filtre : Toilettes" : "🚲 Filtre : Vélhop")
@@ -134,10 +130,8 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 50)
                     
-                    // Panneau déroulant du haut si une catégorie est sélectionnée et qu'on veut lister/trier
                     if selectedCategoryFilter != nil {
                         VStack(spacing: 0) {
-                            // Poignée pour descendre/agrandir
                             Button(action: {
                                 withAnimation(.spring()) {
                                     isSheetExpanded.toggle()
@@ -155,7 +149,6 @@ struct ContentView: View {
                                     .font(.headline)
                                 Spacer()
                                 
-                                // Sélecteur de tri
                                 Picker("Tri", selection: $sortOption) {
                                     Text("Plus proche").tag(SortOption.distance)
                                     Text("Plus de vélos").tag(SortOption.count)
@@ -174,7 +167,7 @@ struct ContentView: View {
                                         selectedPoi = poi
                                         isSheetExpanded = false
                                     }) {
-                                                HStack {
+                                        HStack {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(poi.name)
                                                     .font(.subheadline)
@@ -206,7 +199,6 @@ struct ContentView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
                     
-                    // Fiche contextuelle du POI sélectionné en bas
                     if let poi = selectedPoi {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
@@ -228,7 +220,7 @@ struct ContentView: View {
                         .cornerRadius(20)
                         .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 100) // Laisse de la place pour la barre flottante
+                        .padding(.bottom, 100)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     
@@ -275,7 +267,6 @@ struct ContentView: View {
         }
     }
     
-    // Tri dynamique des éléments filtrés (par distance ou par nombre de vélos/dispo)
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
         let userLoc = locationManager.userLocation
@@ -286,14 +277,13 @@ struct ContentView: View {
                 let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
                 return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
             } else {
-                // Tri par quantité/disponibilité extraite de la description ou par défaut
                 return item1.name < item2.name
             }
         }
     }
 }
 
-// MARK: - Sous-vue : Bouton de la barre d'onglets
+// MARK: - Sous-vues et ViewModel
 struct TabButton: View {
     let icon: String
     let title: String
@@ -315,7 +305,6 @@ struct TabButton: View {
     }
 }
 
-// MARK: - Sous-vue : Écran Catégories (Cartes colorées)
 struct CategoriesView: View {
     @Binding var selectedCategoryFilter: POIType?
     @Binding var selectedTab: String
@@ -325,7 +314,6 @@ struct CategoriesView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Carte Toilettes
                     CategoryCard(
                         title: "Toilettes Publiques",
                         subtitle: "Trouvez les toilettes accessibles à proximité",
@@ -337,7 +325,6 @@ struct CategoriesView: View {
                         isSheetExpanded = true
                     }
                     
-                    // Carte Vélhop
                     CategoryCard(
                         title: "Stations Vélhop",
                         subtitle: "Vélos partagés de l'Eurométropole",
@@ -349,7 +336,6 @@ struct CategoriesView: View {
                         isSheetExpanded = true
                     }
                     
-                    // Emplacement pour de futures catégories
                     CategoryCard(
                         title: "Prochainement...",
                         subtitle: "Nouvelles catégories à venir",
@@ -402,7 +388,6 @@ struct CategoryCard: View {
     }
 }
 
-// MARK: - Sous-vue : Paramètres
 struct SettingsView: View {
     @Binding var mapStyleOption: MapStyleOption
     
@@ -437,22 +422,51 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Gestionnaire de localisation simple pour le tri par distance
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
-    @Published var userLocation: CLLocation? = nil
-    
-    override init() {
-        super.init()
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        userLocation = location
+// MARK: - ViewModel
+@MainActor
+class MapViewModel: ObservableObject {
+    @Published var pois: [POIItem] = []
+    @Published var isLoading: Bool = false
+
+    func loadAllData() async {
+        isLoading = true
+        var loadedPois: [POIItem] = []
+        
+        do {
+            let toilets = try await ToiletteModel.fetchAndMergeToilets()
+            for t in toilets {
+                let adresseText = t.address ?? "Adresse non spécifiée"
+                let description = "📍 \(adresseText)"
+                
+                loadedPois.append(POIItem(
+                    name: t.name,
+                    coordinate: t.coordinate,
+                    type: .toilet,
+                    description: description
+                ))
+            }
+        } catch {
+            print("Erreur chargement toilettes : \(error)")
+        }
+        
+        do {
+            let stations = try await VelhopModel.fetchStations()
+            for s in stations {
+                if let coord = s.coordinate {
+                    loadedPois.append(POIItem(
+                        name: s.nom ?? "Station Vélhop",
+                        coordinate: coord,
+                        type: .velhop,
+                        description: "🚲 Station Vélhop\nVélos disponibles : \(s.nbrVelosDispo ?? 0)"
+                    ))
+                }
+            }
+        } catch {
+            print("Erreur chargement Vélhop : \(error)")
+        }
+        
+        self.pois = loadedPois
+        self.isLoading = false
     }
 }
 
