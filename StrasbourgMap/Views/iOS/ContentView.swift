@@ -269,7 +269,7 @@ struct ContentView: View {
     
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
-        // Utilisation directe de la propriété standard compatible avec le LocationManager externe
+        // Utilisation de .wrappedValue pour accéder à la propriété du StateObject depuis une computed property
         let userLoc = locationManager.userLocation
         
         return items.sorted { item1, item2 in
