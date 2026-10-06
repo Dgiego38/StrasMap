@@ -18,16 +18,18 @@ struct POIItem: Identifiable, Hashable {
     }
 }
 
-enum POIType: String, CaseIterable {
+enum POIType: String, CaseIterable, Codable {
     case velhop = "Vélhop"
     case toilet = "Toilettes"
     case trash = "Poubelles"
+    case tram = "Tram"
     
     var icon: String {
         switch self {
         case .velhop: return "bicycle"
         case .toilet: return "figure.restroom"
         case .trash: return "trash"
+        case .tram: return "tram.fill"
         }
     }
     
@@ -36,6 +38,7 @@ enum POIType: String, CaseIterable {
         case .velhop: return .orange
         case .toilet: return .blue
         case .trash: return .green
+        case .tram: return .red
         }
     }
 }

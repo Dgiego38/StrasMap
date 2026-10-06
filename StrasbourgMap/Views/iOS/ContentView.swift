@@ -66,7 +66,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-// MARK: - Modèles de données fictifs/interface pour les services (à adapter selon tes fichiers existants)
+// MARK: - Modèles de données fictifs/interface pour les services
 
 struct ToiletteModel {
     let name: String
@@ -74,7 +74,6 @@ struct ToiletteModel {
     let address: String?
     
     static func fetchAndMergeToilets() async throws -> [ToiletteModel] {
-        // Remplace par ton appel API réel data.strasbourg.eu
         return [
             ToiletteModel(name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455), address: "Place Kléber")
         ]
@@ -120,25 +119,14 @@ struct TransportctsModel {
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
    
-    // Onglet actif ("map", "categories", "settings")
     @State private var selectedTab: String = "map"
-   
-    // Filtre de catégorie actif
     @State private var selectedCategoryFilter: POIType? = nil
-   
-    // État d'expansion de la feuille du haut
     @State private var isSheetExpanded: Bool = false
-   
-    // Option de tri
     @State private var sortOption: SortOption = .distance
    
-    // Mode d'apparence sauvegardé dans AppStorage
     @AppStorage("themeMode") private var themeMode: ThemeMode = .system
-   
-    // Gestionnaire de localisation
     @StateObject private var locationManager = LocationManager()
    
-    // Position initiale centrée sur Strasbourg (Place Kléber)
     @State private var cameraPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455),
@@ -187,7 +175,7 @@ struct ContentView: View {
                                             .fill(.ultraThinMaterial)
                                             .frame(width: 36, height: 36)
                                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                   
+                                     
                                         Text(poi.type == .toilet ? "🚻" : (poi.type == .velhop ? "🚲" : "🚊"))
                                             .font(.system(size: 16))
                                     }
@@ -207,15 +195,15 @@ struct ContentView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
                                 .foregroundColor(.secondary)
-                           
+                            
                             TextField("Rechercher...", text: $searchText)
                                 .textFieldStyle(.plain)
-                           
+                            
                             if viewModel.isLoading {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                           
+                            
                             if !searchText.isEmpty {
                                 Button(action: { searchText = "" }) {
                                     Image(systemName: "xmark.circle.fill")
