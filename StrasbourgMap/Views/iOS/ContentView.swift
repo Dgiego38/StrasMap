@@ -1,8 +1,24 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
+    
+    // Onglet actif ("map", "categories", "settings")
+    @State private var selectedTab: String = "map"
+    
+    // Filtre de catégorie actif (nil = tout afficher, sinon restreint à un type)
+    @State private var selectedCategoryFilter: POIType? = nil
+    
+    // État d'expansion de la feuille du haut (pour la liste des stations/catégories)
+    @State private var isSheetExpanded: Bool = false
+    
+    // Option de tri pour les catégories ("distance" ou "count")
+    @State private var sortOption: SortOption = .distance
+    
+    // Gestionnaire de localisation pour trier par proximité
+    @StateObject private locationManager = LocationManager()
     
     // Position initiale centrée sur Strasbourg (Place Kléber)
     @State private var cameraPosition: MapCameraPosition = .region(
@@ -16,146 +32,427 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var selectedPoi: POIItem? = nil
     
+    // Filtrage dynamique des POIs (selon recherche texte et filtre catégorie)
     var filteredPois: [POIItem] {
-        if searchText.isEmpty {
-            return viewModel.pois
+        let baseList = viewModel.pois
+        let categoryFiltered = if let filter = selectedCategoryFilter {
+            baseList.filter { $0.type == filter }
         } else {
-            return viewModel.pois.filter { 
+            baseList
+        }
+        
+        if searchText.isEmpty {
+            return categoryFiltered
+        } else {
+            return categoryFiltered.filter { 
                 $0.name.localizedStandardContains(searchText) || 
-                $0.type.rawValue.localizedStandardContains(searchText) ||
                 $0.description.localizedStandardContains(searchText)
             }
         }
     }
     
     var body: some View {
-        ZStack(alignment: .top) {
-            // Carte principale avec MapKit (style Apple Maps)
-            Map(position: $cameraPosition) {
-                ForEach(filteredPois) { poi in
-                    Annotation("", coordinate: poi.coordinate) {
-                        Button(action: {
-                            selectedPoi = poi
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .frame(width: 36, height: 36)
-                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                
-                                Text(poi.type == .toilet ? "🚻" : "🚲")
-                                    .font(.system(size: 16))
-                            }
-                        }
-                    }
-                }
-            }
-            .mapStyle(mapStyleOption == .standard ? .standard : .imagery(elevation: .realistic))
-            .mapControls {
-                MapCompass()
-                MapScaleView()
-                MapUserLocationButton()
-            }
-            .ignoresSafeArea()
-            
-            // Interface utilisateur superposée
-            VStack(spacing: 12) {
-                // Barre de recherche et de choix de style
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        
-                        TextField("Rechercher un Vélhop, toilette...", text: $searchText)
-                            .textFieldStyle(.plain)
-                        
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                        
-                        if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .padding(12)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(14)
-                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                    
-                    // Sélecteur de mode de carte (Plan / Satellite réaliste)
-                    Picker("Style de carte", selection: $mapStyleOption) {
-                        Text("Plan").tag(MapStyleOption.standard)
-                        Text("Satellite").tag(MapStyleOption.satellite)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                
-                // Liste horizontale des résultats filtrés si recherche active
-                if !searchText.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(filteredPois) { poi in
+        ZStack(alignment: .bottom) {
+            // Contenu principal selon l'onglet sélectionné
+            ZStack(alignment: .top) {
+                // 1. ONGLET CARTE (Par défaut)
+                if selectedTab == "map" {
+                    Map(position: $cameraPosition) {
+                        UserAnnotation()
+                        ForEach(filteredPois) { poi in
+                            Annotation("", coordinate: poi.coordinate) {
                                 Button(action: {
-                                    cameraPosition = .region(MKCoordinateRegion(center: poi.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
                                     selectedPoi = poi
                                 }) {
-                                    HStack(spacing: 6) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .frame(width: 36, height: 36)
+                                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                        
                                         Text(poi.type == .toilet ? "🚻" : "🚲")
-                                        Text(poi.name)
-                                            .font(.subheadline)
-                                            .lineLimit(1)
-                                            .foregroundColor(.primary)
+                                            .font(.system(size: 16))
                                     }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(10)
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
                     }
-                }
-                
-                Spacer()
-                
-                // Fiche d'information contextuelle si un POI est sélectionné
-                if let poi = selectedPoi {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text(poi.name)
-                                .font(.headline)
-                            Spacer()
-                            Button(action: { selectedPoi = nil }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.secondary)
-                                    .font(.title3)
+                    .mapStyle(mapStyleOption == .standard ? .standard : .imagery(elevation: .realistic))
+                    .mapControls {
+                        MapCompass()
+                        MapScaleView()
+                        MapUserLocationButton()
+                    }
+                    .ignoresSafeArea()
+                    
+                    // Superposition : Barre de recherche & Filtre actif
+                    VStack(spacing: 10) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                            
+                            TextField("Rechercher...", text: $searchText)
+                                .textFieldStyle(.plain)
+                            
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                            
+                            if !searchText.isEmpty {
+                                Button(action: { searchText = "" }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
-                        Text(poi.description)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        .padding(12)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(14)
+                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                        
+                        // Badge si un filtre de catégorie est actif depuis l'onglet Catégories
+                        if let filter = selectedCategoryFilter {
+                            HStack {
+                                Text(filter == .toilet ? "🚻 Filtre : Toilettes" : "🚲 Filtre : Vélhop")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Button(action: {
+                                    selectedCategoryFilter = nil
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                        }
                     }
-                    .padding(16)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(20)
-                    .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 20)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedPoi)
+                    .padding(.top, 50)
+                    
+                    // Panneau déroulant du haut si une catégorie est sélectionnée et qu'on veut lister/trier
+                    if selectedCategoryFilter != nil {
+                        VStack(spacing: 0) {
+                            // Poignée pour descendre/agrandir
+                            Button(action: {
+                                withAnimation(.spring()) {
+                                    isSheetExpanded.toggle()
+                                }
+                            }) {
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.5))
+                                    .frame(width: 40, height: 5)
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 6)
+                            }
+                            
+                            HStack {
+                                Text(selectedCategoryFilter == .toilet ? "Toilettes publiques" : "Stations Vélhop")
+                                    .font(.headline)
+                                Spacer()
+                                
+                                // Sélecteur de tri
+                                Picker("Tri", selection: $sortOption) {
+                                    Text("Plus proche").tag(SortOption.distance)
+                                    Text("Plus de vélos").tag(SortOption.count)
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 180)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                            
+                            if isSheetExpanded {
+                                Divider()
+                                List(sortedFilteredPois) { poi in
+                                    Button(action: {
+                                        cameraPosition = .region(MKCoordinateRegion(center: poi.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)))
+                                        selectedPoi = poi
+                                        isSheetExpanded = false
+                                    }) {
+                                                HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(poi.name)
+                                                    .font(.subheadline)
+                                                    .fontWeight(.semibold)
+                                                    .foregroundColor(.primary)
+                                                Text(poi.description)
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                    .lineLimit(1)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                                .listStyle(.plain)
+                                .frame(height: 220)
+                            }
+                        }
+                        .padding(.bottom, 10)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 120)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    
+                    // Fiche contextuelle du POI sélectionné en bas
+                    if let poi = selectedPoi {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text(poi.name)
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: { selectedPoi = nil }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                        .font(.title3)
+                                }
+                            }
+                            Text(poi.description)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(16)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100) // Laisse de la place pour la barre flottante
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    
+                // 2. ONGLET CATEGORIES
+                } else if selectedTab == "categories" {
+                    CategoriesView(selectedCategoryFilter: $selectedCategoryFilter, selectedTab: $selectedTab, isSheetExpanded: $isSheetExpanded)
+                        .transition(.opacity)
+                
+                // 3. ONGLET PARAMETRES
+                } else if selectedTab == "settings" {
+                    SettingsView(mapStyleOption: $mapStyleOption)
+                        .transition(.opacity)
                 }
             }
+            .animation(.easeInOut(duration: 0.2), value: selectedTab)
+            
+            // --- BARRE D'ONGLETS FLOTTANTE "LIQUID GLASS" ---
+            HStack(spacing: 24) {
+                TabButton(icon: "map.fill", title: "Carte", isSelected: selectedTab == "map") {
+                    selectedTab = "map"
+                }
+                
+                TabButton(icon: "square.grid.2x2.fill", title: "Catégories", isSelected: selectedTab == "categories") {
+                    selectedTab = "categories"
+                }
+                
+                TabButton(icon: "gearshape.fill", title: "Paramètres", isSelected: selectedTab == "settings") {
+                    selectedTab = "settings"
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+            .cornerRadius(30)
+            .shadow(color: .black.opacity(0.2), radius: 15, x: 0, y: 8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 30)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+            )
+            .padding(.bottom, 24)
         }
         .task {
             await viewModel.loadAllData()
         }
+    }
+    
+    // Tri dynamique des éléments filtrés (par distance ou par nombre de vélos/dispo)
+    var sortedFilteredPois: [POIItem] {
+        let items = filteredPois
+        let userLoc = locationManager.userLocation
+        
+        return items.sorted { item1, item2 in
+            if sortOption == .distance, let userLoc = userLoc {
+                let loc1 = CLLocation(latitude: item1.coordinate.latitude, longitude: item1.coordinate.longitude)
+                let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
+                return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
+            } else {
+                // Tri par quantité/disponibilité extraite de la description ou par défaut
+                return item1.name < item2.name
+            }
+        }
+    }
+}
+
+// MARK: - Sous-vue : Bouton de la barre d'onglets
+struct TabButton: View {
+    let icon: String
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundColor(isSelected ? .accentColor : .secondary)
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        }
+    }
+}
+
+// MARK: - Sous-vue : Écran Catégories (Cartes colorées)
+struct CategoriesView: View {
+    @Binding var selectedCategoryFilter: POIType?
+    @Binding var selectedTab: String
+    @Binding var isSheetExpanded: Bool
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Carte Toilettes
+                    CategoryCard(
+                        title: "Toilettes Publiques",
+                        subtitle: "Trouvez les toilettes accessibles à proximité",
+                        icon: "🚻",
+                        color: LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ) {
+                        selectedCategoryFilter = .toilet
+                        selectedTab = "map"
+                        isSheetExpanded = true
+                    }
+                    
+                    // Carte Vélhop
+                    CategoryCard(
+                        title: "Stations Vélhop",
+                        subtitle: "Vélos partagés de l'Eurométropole",
+                        icon: "🚲",
+                        color: LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ) {
+                        selectedCategoryFilter = .velhop
+                        selectedTab = "map"
+                        isSheetExpanded = true
+                    }
+                    
+                    // Emplacement pour de futures catégories
+                    CategoryCard(
+                        title: "Prochainement...",
+                        subtitle: "Nouvelles catégories à venir",
+                        icon: "✨",
+                        color: LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    ) {}
+                    .opacity(0.6)
+                }
+                .padding(16)
+                .padding(.bottom, 100)
+            }
+            .navigationTitle("Catégories")
+        }
+    }
+}
+
+struct CategoryCard: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let color: LinearGradient
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Text(icon)
+                    .font(.system(size: 36))
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(16)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .padding(18)
+            .background(color)
+            .cornerRadius(22)
+            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        }
+    }
+}
+
+// MARK: - Sous-vue : Paramètres
+struct SettingsView: View {
+    @Binding var mapStyleOption: MapStyleOption
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Apparence de la carte")) {
+                    Picker("Style de carte", selection: $mapStyleOption) {
+                        Text("Plan standard").tag(MapStyleOption.standard)
+                        Text("Satellite 3D").tag(MapStyleOption.satellite)
+                    }
+                }
+                
+                Section(header: Text("À propos")) {
+                    HStack {
+                        Text("Application")
+                        Spacer()
+                        Text("StrasbourgMap v1.0")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Source des données")
+                        Spacer()
+                        Text("data.strasbourg.eu")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Paramètres")
+            .padding(.bottom, 80)
+        }
+    }
+}
+
+// MARK: - Gestionnaire de localisation simple pour le tri par distance
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    @Published var userLocation: CLLocation? = nil
+    
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        userLocation = location
     }
 }
 
@@ -163,52 +460,6 @@ enum MapStyleOption {
     case standard, satellite
 }
 
-// MARK: - ViewModel
-@MainActor
-class MapViewModel: ObservableObject {
-    @Published var pois: [POIItem] = []
-    @Published var isLoading: Bool = false
-
-    func loadAllData() async {
-        isLoading = true
-        var loadedPois: [POIItem] = []
-        
-        // 1. Chargement des Toilettes via ToiletteModel
-        do {
-            let toilets = try await ToiletteModel.fetchAndMergeToilets()
-            for t in toilets {
-                let adresseText = t.address ?? "Adresse non spécifiée"
-                let description = "📍 \(adresseText)"
-                
-                loadedPois.append(POIItem(
-                    name: t.name,
-                    coordinate: t.coordinate,
-                    type: .toilet,
-                    description: description
-                ))
-            }
-        } catch {
-            print("Erreur chargement toilettes : \(error)")
-        }
-        
-        // 2. Chargement des Vélhops via VelhopModel
-        do {
-            let stations = try await VelhopModel.fetchStations()
-            for s in stations {
-                if let coord = s.coordinate {
-                    loadedPois.append(POIItem(
-                        name: s.nom ?? "Station Vélhop",
-                        coordinate: coord,
-                        type: .velhop,
-                        description: "🚲 Station Vélhop\nVélos disponibles : \(s.nbrVelosDispo ?? 0)"
-                    ))
-                }
-            }
-        } catch {
-            print("Erreur chargement Vélhop : \(error)")
-        }
-        
-        self.pois = loadedPois
-        self.isLoading = false
-    }
+enum SortOption {
+    case distance, count
 }
