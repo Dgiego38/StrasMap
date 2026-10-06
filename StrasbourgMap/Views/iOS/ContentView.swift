@@ -2,6 +2,22 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+enum ThemeMode: String, CaseIterable, Identifiable {
+    case system = "Système"
+    case light = "Clair"
+    case dark = "Sombre"
+    
+    var id: String { self.rawValue }
+    
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var viewModel = MapViewModel()
     
@@ -16,6 +32,9 @@ struct ContentView: View {
     
     // Option de tri
     @State private var sortOption: SortOption = .distance
+    
+    // Mode d'apparence (Clair / Sombre / Système) sauvegardé dans les AppStorage
+    @AppStorage("themeMode") private var themeMode: ThemeMode = .system
     
     // Gestionnaire de localisation
     @StateObject private var locationManager = LocationManager()
@@ -231,7 +250,7 @@ struct ContentView: View {
                 
                 // 3. ONGLET PARAMETRES
                 } else if selectedTab == "settings" {
-                    SettingsView(mapStyleOption: $mapStyleOption)
+                    SettingsView(mapStyleOption: $mapStyleOption, themeMode: $themeMode)
                         .transition(.opacity)
                 }
             }
@@ -262,6 +281,7 @@ struct ContentView: View {
             )
             .padding(.bottom, 24)
         }
+        .preferredColorScheme(themeMode.colorScheme)
         .task {
             await viewModel.loadAllData()
         }
@@ -270,18 +290,17 @@ struct ContentView: View {
     var sortedFilteredPois: [POIItem] {
         let items = filteredPois
         
-        return items.sorted { item1, item2 in
+        return items.sorted(by: { item1, item2 in
             if sortOption == .distance {
                 let loc1 = CLLocation(latitude: item1.coordinate.latitude, longitude: item1.coordinate.longitude)
                 let loc2 = CLLocation(latitude: item2.coordinate.latitude, longitude: item2.coordinate.longitude)
                 
-                // Remplace ".location" par le nom exact de ta variable dans LocationManager si besoin (ex: .lastLocation, .userLocation, etc.)
                 if let userLoc = locationManager.location {
                     return loc1.distance(from: userLoc) < loc2.distance(from: userLoc)
                 }
             }
             return item1.name < item2.name
-        }
+        })
     }
 }
 
@@ -392,10 +411,20 @@ struct CategoryCard: View {
 
 struct SettingsView: View {
     @Binding var mapStyleOption: MapStyleOption
+    @Binding var themeMode: ThemeMode
     
     var body: some View {
         NavigationStack {
             Form {
+                Section(header: Text("Apparence")) {
+                    Picker("Mode d'affichage", selection: $themeMode) {
+                        ForEach(ThemeMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                
                 Section(header: Text("Apparence de la carte")) {
                     Picker("Style de carte", selection: $mapStyleOption) {
                         Text("Plan standard").tag(MapStyleOption.standard)
