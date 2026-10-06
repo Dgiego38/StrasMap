@@ -4,6 +4,24 @@ import CoreLocation
 
 // MARK: - Modèles et Énumérations
 
+enum POIType: String, Codable, CaseIterable {
+    case toilet
+    case velhop
+    case tram
+}
+
+struct POIItem: Identifiable, Equatable {
+    let id = UUID()
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+    let type: POIType
+    let description: String
+    
+    static func == (lhs: POIItem, rhs: POIItem) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 enum ThemeMode: String, CaseIterable, Identifiable {
     case system = "Système"
     case light = "Clair"
@@ -26,6 +44,75 @@ enum MapStyleOption {
 
 enum SortOption {
     case distance, count
+}
+
+// MARK: - Gestionnaire de localisation simple
+
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    @Published var currentLocation: CLLocation?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        self.currentLocation = location
+    }
+}
+
+// MARK: - Modèles de données fictifs/interface pour les services (à adapter selon tes fichiers existants)
+
+struct ToiletteModel {
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+    let address: String?
+    
+    static func fetchAndMergeToilets() async throws -> [ToiletteModel] {
+        // Remplace par ton appel API réel data.strasbourg.eu
+        return [
+            ToiletteModel(name: "Toilettes Place Kléber", coordinate: CLLocationCoordinate2D(latitude: 48.5839, longitude: 7.7455), address: "Place Kléber")
+        ]
+    }
+}
+
+struct VelhopModel {
+    let nom: String?
+    let coordinate: CLLocationCoordinate2D?
+    let nbrVelosDispo: Int?
+    
+    static func fetchStations() async throws -> [VelhopModel] {
+        return [
+            VelhopModel(nom: "Station Homme de Fer", coordinate: CLLocationCoordinate2D(latitude: 48.5834, longitude: 7.7431), nbrVelosDispo: 12)
+        ]
+    }
+}
+
+struct TransportctsModel {
+    let nomArret: String?
+    let ligneS: String?
+    let geoPoint2d: GeoPoint?
+    let geometry: GeoGeometry?
+    
+    struct GeoPoint {
+        let lat: Double
+        let lon: Double
+    }
+    
+    struct GeoGeometry {
+        let coordinates: [Double]
+    }
+    
+    static func fetchTramStations() async throws -> [TransportctsModel] {
+        return [
+            TransportctsModel(nomArret: "Homme de Fer", ligneS: "A, B, C, D", geoPoint2d: GeoPoint(lat: 48.5834, lon: 7.7431), geometry: nil)
+        ]
+    }
 }
 
 // MARK: - Vue Principale
@@ -100,7 +187,7 @@ struct ContentView: View {
                                             .fill(.ultraThinMaterial)
                                             .frame(width: 36, height: 36)
                                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                     
+                                   
                                         Text(poi.type == .toilet ? "🚻" : (poi.type == .velhop ? "🚲" : "🚊"))
                                             .font(.system(size: 16))
                                     }
